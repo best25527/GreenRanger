@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ประวัติการตรวจของฉัน</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 16px; background: #f5f7fa; }
+    .card { background: #fff; padding: 16px; border-radius: 12px; max-width: 560px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .nav { display: flex; gap: 8px; margin-bottom: 14px; }
+    .nav a { flex: 1; text-align: center; padding: 8px; background: #eef1f5; border-radius: 8px; text-decoration: none; color: #222; font-size: 14px; }
+    .nav a.active { background: #222; color: #fff; }
+    .item { border-bottom: 1px solid #eee; padding: 10px 0; font-size: 14px; }
+    .item:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="nav">
+      <a href="index.html">รายงาน</a>
+      <a href="history.html" class="active">ประวัติ</a>
+      <a href="status.html">สถิติ</a>
+    </div>
+
+    <h3>ประวัติการตรวจของฉัน</h3>
+    <div id="list">กำลังโหลดประวัติ...</div>
+  </div>
+
+  <script>
+    const LIFF_ID = "YOUR_LIFF_ID";
+    const GAS_URL = "YOUR_GAS_WEB_APP_URL";
+
+    async function loadHistory() {
+      const listEl = document.getElementById("list");
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+      const profile = await liff.getProfile();
+      const uid = profile.userId;
+
+      try {
+        const res = await fetch(`${GAS_URL}?action=get_history&uid=${encodeURIComponent(uid)}`);
+        const data = await res.json();
+        const logs = data.logs || [];
+
+        if (logs.length === 0) {
+          listEl.textContent = "ยังไม่มีประวัติการตรวจของคุณ";
+          return;
+        }
+
+        // อิงตามโครงสร้างคอลัมน์ใน doPost: [0]เวลา, [1]uid, [2]ชื่อ, [3]อาคาร, [4]ห้อง, [5]สถานะ, [6]หมายเหตุ
+        listEl.innerHTML = logs.map(row => `
+          <div class="item">
+            <div><strong>${row[3] || "-"} - ${row[4] || "-"}</strong> | สถานะ: <strong>${row[5] || "-"}</strong></div>
+            <div>หมายเหตุ: ${row[6] || "-"}</div>
+            <div style="color:#777;font-size:12px;">${row[0] || ""}</div>
+          </div>
+        `).join("");
+      } catch (err) {
+        listEl.textContent = "โหลดข้อมูลประวัติไม่สำเร็จ";
+      }
+    }
+
+    loadHistory();
+  </script>
+</body>
+</html>
