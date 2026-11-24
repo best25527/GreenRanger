@@ -6,115 +6,560 @@
   <title>รายงานการตรวจอาคาร</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 16px; background: #f5f7fa; }
-    .card { background: #fff; padding: 16px; border-radius: 12px; max-width: 520px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    label { display: block; margin-top: 12px; font-weight: bold; }
-    input, select, textarea, button { width: 100%; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-    button { background: #06c755; color: #fff; border: none; font-weight: bold; margin-top: 16px; cursor: pointer; }
-    button:disabled { background: #9fdcb8; }
-    .nav { display: flex; gap: 8px; margin-bottom: 14px; }
-    .nav a { flex: 1; text-align: center; padding: 8px; background: #eef1f5; border-radius: 8px; text-decoration: none; color: #222; font-size: 14px; }
-    .nav a.active { background: #222; color: #fff; }
-    #msg { margin-top: 12px; font-size: 14px; }
+    :root {
+      --bg: #f3f6f4;
+      --card: #ffffff;
+      --primary: #15803d;
+      --primary-dark: #166534;
+      --accent: #0f766e;
+      --border: #d1d5db;
+      --text: #111827;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 14px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      max-width: 560px;
+      margin: 0 auto 40px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      border: 1px solid #e5e7eb;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: var(--primary-dark);
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 10px;
+      margin-bottom: 4px;
+    }
+    input[type="text"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      background: #fff;
+    }
+    .grade-badge {
+      margin-top: 6px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #ecfdf5;
+      color: #065f46;
+      font-size: 13px;
+      font-weight: 600;
+      display: none;
+    }
+    .grade-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .check-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fafafa;
+    }
+    .check-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--primary);
+    }
+    .photo-box {
+      margin-top: 8px;
+    }
+    .photo-preview {
+      margin-top: 8px;
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 10px;
+      display: none;
+      object-fit: cover;
+      border: 1px solid #e5e7eb;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .btn-add {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-add:hover { opacity: 0.95; }
+    .btn-submit {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-submit:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .queued-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: #f9fafb;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .queued-meta {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .btn-remove {
+      background: #fee2e2;
+      color: #991b1b;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .muted { color: var(--muted); font-size: 13px; }
+    #statusMsg {
+      margin-top: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="nav">
-      <a href="index.html" class="active">รายงาน</a>
-      <a href="history.html">ประวัติ</a>
-      <a href="status.html">สถิติ</a>
+  <div class="container">
+    <!-- ส่วนที่ 1: วัน และ ตึก (คงไว้เมื่อกดเพิ่มห้องถัดไป) -->
+    <div class="card">
+      <h2 class="card-title">1. ข้อมูลรอบการตรวจ (คงไว้เมื่อเพิ่มห้อง)</h2>
+
+      <label for="inspectDate">วันที่ตรวจ</label>
+      <input type="date" id="inspectDate" required />
+
+      <label for="buildingSelect">เลือกตึก</label>
+      <select id="buildingSelect" required>
+        <option value="" disabled selected>-- เลือกตึก --</option>
+        <option value="ตึก 3">ตึก 3</option>
+        <option value="ตึก 5">ตึก 5</option>
+        <option value="ตึก 9">ตึก 9</option>
+        <option value="ตึก 10 (3-5)">ตึก 10 (3-5)</option>
+        <option value="ตึก 10 (6-8)">ตึก 10 (6-8)</option>
+      </select>
     </div>
 
-    <h3>แบบฟอร์มรายงานการตรวจอาคาร</h3>
-    <form id="reportForm">
-      <label>อาคาร</label>
-      <input type="text" id="building" required placeholder="เช่น อาคาร 1" />
+    <!-- ส่วนที่ 2: กรอกเฉพาะห้องที่มีปัญหา -->
+    <div class="card">
+      <h2 class="card-title">2. รายละเอียดห้องที่พบปัญหา</h2>
 
-      <label>ห้อง / จุดตรวจ</label>
-      <input type="text" id="room" required placeholder="เช่น ห้อง 201" />
+      <label for="roomInput">เลขห้อง / ชื่อห้อง</label>
+      <input type="text" id="roomInput" placeholder="เช่น 631, 422 หรือ ห้องพักครู" autocomplete="off" />
 
-      <label>สถานะ</label>
-      <select id="status" required>
-        <option value="ปกติ">ปกติ</option>
-        <option value="พบจุดแก้ไข">พบจุดแก้ไข</option>
-        <option value="เร่งด่วน">เร่งด่วน</option>
-      </select>
+      <div id="gradeBox" class="grade-badge">
+        <div class="grade-row">
+          <span id="gradeText"></span>
+          <label class="check-item" style="padding: 4px 8px; background: #fff;">
+            <input type="checkbox" id="notClassroomCheck" />
+            <span>ไม่ใช่ห้องเรียน</span>
+          </label>
+        </div>
+      </div>
 
-      <label>หมายเหตุเพิ่มเติม</label>
-      <textarea id="note" rows="3" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"></textarea>
+      <label>ปัญหาที่พบ (เลือกได้หลายข้อ)</label>
+      <div class="check-group" id="issueGroup">
+        <label class="check-item">
+          <input type="checkbox" class="issue-cb" value="ไม่ปิดไฟ" />
+          <span>ไม่ปิดไฟ</span>
+        </label>
+        <label class="check-item">
+          <input type="checkbox" class="issue-cb" value="ไม่ปิดพัดลม" />
+          <span>ไม่ปิดพัดลม</span>
+        </label>
+        <label class="check-item">
+          <input type="checkbox" class="issue-cb" value="ไม่ปิดเครื่องปรับอากาศ" />
+          <span>ไม่ปิดเครื่องปรับอากาศ</span>
+        </label>
+        <label class="check-item">
+          <input type="checkbox" class="issue-cb" value="ไม่ปิดทีวี/โปรเจคเตอร์" />
+          <span>ไม่ปิดทีวี/โปรเจคเตอร์</span>
+        </label>
+        <label class="check-item">
+          <input type="checkbox" id="otherIssueCb" value="อื่นๆ" />
+          <span>อื่นๆ</span>
+        </label>
+      </div>
 
-      <button type="submit" id="submitBtn">ส่งรายงาน</button>
-    </form>
-    <div id="msg"></div>
+      <div id="otherIssueWrap" style="display: none;">
+        <label for="otherIssueText">ระบุปัญหาอื่นๆ เพิ่มเติม</label>
+        <input type="text" id="otherIssueText" placeholder="พิมพ์รายละเอียดปัญหาเพิ่มเติม" />
+      </div>
+
+      <div class="photo-box">
+        <label for="photoInput">แนบรูปถ่ายหลักฐาน</label>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" />
+
+        <label class="check-item" style="margin-top: 8px;">
+          <input type="checkbox" id="forgotPhotoCb" />
+          <span>ลืมถ่ายรูป</span>
+        </label>
+
+        <img id="photoPreview" class="photo-preview" alt="ตัวอย่างรูปภาพ" />
+      </div>
+
+      <button type="button" class="btn btn-add" id="addRoomBtn">+ เพิ่มห้องถัดไป</button>
+    </div>
+
+    <!-- ส่วนที่ 3: รายการที่เพิ่มแล้ว + ลงชื่อยืนยัน + กดส่งครั้งเดียว -->
+    <div class="card">
+      <h2 class="card-title">3. รายการที่รอส่ง (<span id="queueCount">0</span> ห้อง)</h2>
+      <div id="queuedList" class="muted">ยังไม่มีรายการห้องที่เพิ่มไว้</div>
+
+      <label for="signerName">ลงชื่อยืนยันผู้ตรวจ</label>
+      <input type="text" id="signerName" placeholder="พิมพ์ชื่อ-นามสกุล หรือชื่อเล่นผู้ตรวจ" />
+
+      <button type="button" class="btn btn-submit" id="submitAllBtn" disabled>ยืนยันและส่งข้อมูลทั้งหมด</button>
+      <div id="statusMsg"></div>
+    </div>
   </div>
 
   <script>
     const LIFF_ID = "2012687160-QEgdHHuU";
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_cZnCMzebyoaPd7BwyyrliX52wOBU2pyEJ7R0VTgzbne6jAh24dRYREu0V9KSMU_4/exec";
+
     let lineUid = "";
-    let lineName = "";
+    let lineDisplayName = "";
+    let currentCompressedBase64 = "";
+    let queuedRooms = [];
 
-    async function initApp() {
-      await liff.init({ liffId: LIFF_ID });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
+    // ตั้งค่าวันที่เริ่มต้นเป็นวันนี้
+    const dateInput = document.getElementById("inspectDate");
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+
+    // ตรวจจับระดับชั้นเบื้องต้นจากเลขห้อง 3 หลัก (เช่น 631 -> ม.6/3)
+    const roomInput = document.getElementById("roomInput");
+    const gradeBox = document.getElementById("gradeBox");
+    const gradeText = document.getElementById("gradeText");
+    const notClassroomCheck = document.getElementById("notClassroomCheck");
+
+    function detectGradeLabel(rawRoom) {
+      if (notClassroomCheck.checked) return "";
+      const digits = rawRoom.trim().match(/^\d{3}$/);
+      if (!digits) return "";
+      const num = digits[0];
+      const level = num[0];
+      const roomNo = parseInt(num.slice(1), 10);
+      if (["1", "2", "3", "4", "5", "6"].includes(level) && roomNo >= 1) {
+        return `ม.${level}/${roomNo}`;
       }
-      const profile = await liff.getProfile();
-      lineUid = profile.userId;
-      lineName = profile.displayName;
+      return "";
+    }
 
-      // ตรวจสิทธิ์ (โหมดเปิดอิสระชั่วคราว)
-      const res = await fetch(`${GAS_URL}?action=check_auth&uid=${encodeURIComponent(lineUid)}`);
-      const auth = await res.json();
-      if (!auth.authorized) {
-        document.body.innerHTML = "<h3 style='text-align:center;margin-top:40px;'>ไม่มีสิทธิ์เข้าถึงระบบ</h3>";
+    function updateGradeDisplay() {
+      const detected = detectGradeLabel(roomInput.value);
+      const match3Digits = /^\d{3}$/.test(roomInput.value.trim());
+      if (match3Digits && !notClassroomCheck.checked && detected) {
+        gradeBox.style.display = "block";
+        gradeText.textContent = `ระดับชั้นที่คาดว่าเป็น: ${detected}`;
+      } else if (match3Digits && notClassroomCheck.checked) {
+        gradeBox.style.display = "block";
+        gradeText.textContent = "ระบุเป็น: ไม่ใช่ห้องเรียน";
+      } else {
+        gradeBox.style.display = "none";
+        gradeText.textContent = "";
       }
     }
 
-    document.getElementById("reportForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById("submitBtn");
-      const msg = document.getElementById("msg");
-      btn.disabled = true;
-      msg.textContent = "กำลังบันทึกข้อมูล...";
+    roomInput.addEventListener("input", () => {
+      notClassroomCheck.checked = false;
+      updateGradeDisplay();
+    });
+    notClassroomCheck.addEventListener("change", updateGradeDisplay);
+
+    // แสดงช่องพิมพ์เพิ่มเมื่อเลือก "อื่นๆ"
+    const otherIssueCb = document.getElementById("otherIssueCb");
+    const otherIssueWrap = document.getElementById("otherIssueWrap");
+    const otherIssueText = document.getElementById("otherIssueText");
+    otherIssueCb.addEventListener("change", () => {
+      otherIssueWrap.style.display = otherIssueCb.checked ? "block" : "none";
+      if (!otherIssueCb.checked) otherIssueText.value = "";
+    });
+
+    // จัดการรูปภาพ + บีบอัดขนาดฝั่งหน้าเว็บก่อนส่ง (ลดเวลาอัปโหลด)
+    const photoInput = document.getElementById("photoInput");
+    const forgotPhotoCb = document.getElementById("forgotPhotoCb");
+    const photoPreview = document.getElementById("photoPreview");
+
+    function compressImageToBase64(file, maxWidth = 900, quality = 0.72) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          };
+          img.onerror = reject;
+          img.src = ev.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    photoInput.addEventListener("change", async () => {
+      const file = photoInput.files[0];
+      if (!file) {
+        currentCompressedBase64 = "";
+        photoPreview.style.display = "none";
+        return;
+      }
+      forgotPhotoCb.checked = false;
+      currentCompressedBase64 = await compressImageToBase64(file);
+      photoPreview.src = currentCompressedBase64;
+      photoPreview.style.display = "block";
+    });
+
+    forgotPhotoCb.addEventListener("change", () => {
+      if (forgotPhotoCb.checked) {
+        photoInput.value = "";
+        currentCompressedBase64 = "";
+        photoPreview.style.display = "none";
+      }
+    });
+
+    // เรนเดอร์รายการห้องที่เพิ่มแล้ว
+    function renderQueue() {
+      const listEl = document.getElementById("queuedList");
+      const countEl = document.getElementById("queueCount");
+      const submitBtn = document.getElementById("submitAllBtn");
+
+      countEl.textContent = queuedRooms.length;
+      submitBtn.disabled = queuedRooms.length === 0;
+
+      if (queuedRooms.length === 0) {
+        listEl.innerHTML = '<div class="muted">ยังไม่มีรายการห้องที่เพิ่มไว้</div>';
+        return;
+      }
+
+      listEl.innerHTML = queuedRooms.map((item, idx) => `
+        <div class="queued-item">
+          <div class="queued-meta">
+            <div><strong>${idx + 1}. ${item.building} | ห้อง ${item.room}</strong> ${item.grade ? `(${item.grade})` : ""}</div>
+            <div>ปัญหา: ${item.issuesSummary}</div>
+            <div>รูปภาพ: ${item.forgotPhoto ? "ลืมถ่ายรูป" : (item.hasPhoto ? "แนบรูปแล้ว" : "ไม่ได้แนบ")}</div>
+          </div>
+          <button type="button" class="btn-remove" onclick="removeQueuedItem(${idx})">ลบ</button>
+        </div>
+      `).join("");
+    }
+
+    window.removeQueuedItem = function(index) {
+      queuedRooms.splice(index, 1);
+      renderQueue();
+    };
+
+    function resetRoomFieldsOnly() {
+      roomInput.value = "";
+      notClassroomCheck.checked = false;
+      gradeBox.style.display = "none";
+      gradeText.textContent = "";
+
+      document.querySelectorAll(".issue-cb").forEach(cb => cb.checked = false);
+      otherIssueCb.checked = false;
+      otherIssueWrap.style.display = "none";
+      otherIssueText.value = "";
+
+      photoInput.value = "";
+      forgotPhotoCb.checked = false;
+      currentCompressedBase64 = "";
+      photoPreview.style.display = "none";
+      roomInput.focus();
+    }
+
+    // ปุ่มเพิ่มห้องถัดไป (คง วันที่ และ ตึก ไว้)
+    document.getElementById("addRoomBtn").addEventListener("click", () => {
+      const statusMsg = document.getElementById("statusMsg");
+      statusMsg.textContent = "";
+
+      const inspectDate = dateInput.value;
+      const building = document.getElementById("buildingSelect").value;
+      const room = roomInput.value.trim();
+
+      if (!inspectDate) {
+        alert("กรุณาเลือกวันที่ตรวจก่อนครับ");
+        return;
+      }
+      if (!building) {
+        alert("กรุณาเลือกตึกก่อนครับ");
+        return;
+      }
+      if (!room) {
+        alert("กรุณาคีย์เลขห้องหรือชื่อห้องที่มีปัญหาก่อนครับ");
+        roomInput.focus();
+        return;
+      }
+
+      const selectedIssues = [];
+      document.querySelectorAll(".issue-cb:checked").forEach(cb => selectedIssues.push(cb.value));
+
+      if (otherIssueCb.checked) {
+        const extra = otherIssueText.value.trim();
+        if (!extra) {
+          alert("กรุณาพิมพ์รายละเอียดปัญหาในช่อง 'อื่นๆ' ด้วยครับ");
+          otherIssueText.focus();
+          return;
+        }
+        selectedIssues.push(`อื่นๆ: ${extra}`);
+      }
+
+      if (selectedIssues.length === 0) {
+        alert("กรุณาเลือกปัญหาที่พบอย่างน้อย 1 ข้อครับ");
+        return;
+      }
+
+      if (!currentCompressedBase64 && !forgotPhotoCb.checked) {
+        alert("กรุณาแนบรูปถ่าย หรือติ๊กเลือก 'ลืมถ่ายรูป' ครับ");
+        return;
+      }
+
+      const gradeLabel = detectGradeLabel(room);
+
+      queuedRooms.push({
+        date: inspectDate,
+        building: building,
+        room: room,
+        grade: gradeLabel || (notClassroomCheck.checked ? "ไม่ใช่ห้องเรียน" : "-"),
+        issues: selectedIssues,
+        issuesSummary: selectedIssues.join(", "),
+        forgotPhoto: forgotPhotoCb.checked,
+        hasPhoto: Boolean(currentCompressedBase64),
+        photoBase64: currentCompressedBase64
+      });
+
+      renderQueue();
+      resetRoomFieldsOnly();
+    });
+
+    // ปุ่มยืนยันและส่งข้อมูลทั้งหมดแบบ Batch เดียวจบ
+    document.getElementById("submitAllBtn").addEventListener("click", async () => {
+      const signer = document.getElementById("signerName").value.trim();
+      const statusMsg = document.getElementById("statusMsg");
+      const submitBtn = document.getElementById("submitAllBtn");
+
+      if (queuedRooms.length === 0) return;
+      if (!signer) {
+        alert("กรุณาลงชื่อยืนยันผู้ตรวจก่อนส่งข้อมูลครับ");
+        document.getElementById("signerName").focus();
+        return;
+      }
+
+      submitBtn.disabled = true;
+      statusMsg.style.color = "#0f766e";
+      statusMsg.textContent = `กำลังส่งข้อมูล ${queuedRooms.length} รายการ...`;
 
       const payload = {
+        action: "submit_batch_reports",
         uid: lineUid,
-        inspectorName: lineName,
-        building: document.getElementById("building").value.trim(),
-        room: document.getElementById("room").value.trim(),
-        status: document.getElementById("status").value,
-        note: document.getElementById("note").value.trim(),
-        photoUrl: ""
+        lineDisplayName: lineDisplayName,
+        signerName: signer,
+        items: queuedRooms
       };
 
       try {
-        // ใช้ text/plain เพื่อลดปัญหา CORS preflight กับ Google Apps Script
         const res = await fetch(GAS_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload)
         });
-        const result = await res.json();
-        if (result.status === "success") {
-          msg.style.color = "green";
-          msg.textContent = "บันทึกรายงานเรียบร้อยแล้ว";
-          e.target.reset();
+        const data = await res.json();
+
+        if (data.status === "success") {
+          queuedRooms = [];
+          renderQueue();
+          resetRoomFieldsOnly();
+          document.getElementById("signerName").value = "";
+          statusMsg.style.color = "#15803d";
+          statusMsg.textContent = "ส่งข้อมูลทั้งหมดเรียบร้อยแล้วครับ";
         } else {
-          msg.style.color = "red";
-          msg.textContent = "บันทึกไม่สำเร็จ: " + (result.message || "");
+          statusMsg.style.color = "#b91c1c";
+          statusMsg.textContent = "ส่งข้อมูลไม่สำเร็จ: " + (data.message || "ลองใหม่อีกครั้ง");
+          submitBtn.disabled = false;
         }
       } catch (err) {
-        msg.style.color = "red";
-        msg.textContent = "เกิดข้อผิดพลาดในการส่งข้อมูล";
-      } finally {
-        btn.disabled = false;
+        statusMsg.style.color = "#b91c1c";
+        statusMsg.textContent = "เกิดข้อผิดพลาดในการเชื่อมต่อระบบ";
+        submitBtn.disabled = false;
       }
     });
 
-    initApp();
+    async function initLiff() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+        const profile = await liff.getProfile();
+        lineUid = profile.userId || "";
+        lineDisplayName = profile.displayName || "";
+      } catch (e) {
+        // กรณีเปิดทดสอบนอกบริบท LIFF
+      }
+    }
+
+    initLiff();
   </script>
 </body>
 </html>
