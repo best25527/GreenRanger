@@ -51,8 +51,7 @@
     }
     input[type="text"],
     input[type="date"],
-    select,
-    textarea {
+    select {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid var(--border);
@@ -127,7 +126,6 @@
       background: var(--accent);
       color: #fff;
     }
-    .btn-add:hover { opacity: 0.95; }
     .btn-submit {
       background: var(--primary);
       color: #fff;
@@ -173,21 +171,21 @@
 </head>
 <body>
   <div class="container">
-    <!-- ส่วนที่ 1: วัน และ ตึก (คงไว้เมื่อกดเพิ่มห้องถัดไป) -->
+    <!-- ส่วนที่ 1: วัน และ อาคาร (คงไว้เมื่อกดเพิ่มห้องถัดไป) -->
     <div class="card">
       <h2 class="card-title">1. ข้อมูลรอบการตรวจ (คงไว้เมื่อเพิ่มห้อง)</h2>
 
       <label for="inspectDate">วันที่ตรวจ</label>
       <input type="date" id="inspectDate" required />
 
-      <label for="buildingSelect">เลือกตึก</label>
+      <label for="buildingSelect">เลือกอาคาร</label>
       <select id="buildingSelect" required>
-        <option value="" disabled selected>-- เลือกตึก --</option>
-        <option value="ตึก 3">ตึก 3</option>
-        <option value="ตึก 5">ตึก 5</option>
-        <option value="ตึก 9">ตึก 9</option>
-        <option value="ตึก 10 (3-5)">ตึก 10 (3-5)</option>
-        <option value="ตึก 10 (6-8)">ตึก 10 (6-8)</option>
+        <option value="" disabled selected>-- เลือกอาคาร --</option>
+        <option value="อาคาร 3">อาคาร 3</option>
+        <option value="อาคาร 5">อาคาร 5</option>
+        <option value="อาคาร 9">อาคาร 9</option>
+        <option value="อาคาร 10 (3-5)">อาคาร 10 (3-5)</option>
+        <option value="อาคาร 10 (6-8)">อาคาร 10 (6-8)</option>
       </select>
     </div>
 
@@ -271,51 +269,66 @@
 
     let lineUid = "";
     let lineDisplayName = "";
+    let roomDirectory = [];
     let currentCompressedBase64 = "";
     let queuedRooms = [];
 
-    // ตั้งค่าวันที่เริ่มต้นเป็นวันนี้
     const dateInput = document.getElementById("inspectDate");
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    dateInput.value = `${yyyy}-${mm}-${dd}`;
-
-    // ตรวจจับระดับชั้นเบื้องต้นจากเลขห้อง 3 หลัก (เช่น 631 -> ม.6/3)
+    const buildingSelect = document.getElementById("buildingSelect");
     const roomInput = document.getElementById("roomInput");
     const gradeBox = document.getElementById("gradeBox");
     const gradeText = document.getElementById("gradeText");
     const notClassroomCheck = document.getElementById("notClassroomCheck");
 
-    function detectGradeLabel(rawRoom) {
-      if (notClassroomCheck.checked) return "";
-      const digits = rawRoom.trim().match(/^\d{3}$/);
-      if (!digits) return "";
-      const num = digits[0];
-      const level = num[0];
-      const roomNo = parseInt(num.slice(1), 10);
-      if (["1", "2", "3", "4", "5", "6"].includes(level) && roomNo >= 1) {
-        return `ม.${level}/${roomNo}`;
-      }
-      return "";
+    // ตั้งค่าวันที่เริ่มต้นเป็นวันนี้
+    const today = new Date();
+    dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+    // ค้นหาข้อมูลห้องจากชีต Room_Directory ก่อน (ถ้าไม่เจอจะไม่ Error แค่ไม่ขึ้นข้อมูลห้อง)
+    function lookupRoomInfo(building, room) {
+      if (!building || !room) return "";
+      const matched = roomDirectory.find(
+        r => String(r.building).trim() === String(building).trim() &&
+             String(r.room).trim().toLowerCase() === String(room).trim().toLowerCase()
+      );
+      return matched ? String(matched.gradeOrType || "").trim() : "";
+    }
+
+    function resolveRoomLabel() {
+      if (notClassroomCheck.checked) return "ไม่ใช่ห้องเรียน";
+      return lookupRoomInfo(buildingSelect.value, roomInput.value.trim());
     }
 
     function updateGradeDisplay() {
-      const detected = detectGradeLabel(roomInput.value);
-      const match3Digits = /^\d{3}$/.test(roomInput.value.trim());
-      if (match3Digits && !notClassroomCheck.checked && detected) {
-        gradeBox.style.display = "block";
-        gradeText.textContent = `ระดับชั้นที่คาดว่าเป็น: ${detected}`;
-      } else if (match3Digits && notClassroomCheck.checked) {
-        gradeBox.style.display = "block";
-        gradeText.textContent = "ระบุเป็น: ไม่ใช่ห้องเรียน";
-      } else {
+      const b = buildingSelect.value;
+      const r = roomInput.value.trim();
+      if (!r) {
         gradeBox.style.display = "none";
         gradeText.textContent = "";
+        return;
+      }
+
+      if (notClassroomCheck.checked) {
+        gradeBox.style.display = "block";
+        gradeText.textContent = "ระบุเป็น: ไม่ใช่ห้องเรียน";
+        return;
+      }
+
+      const found = lookupRoomInfo(b, r);
+      if (found) {
+        gradeBox.style.display = "block";
+        gradeText.textContent = found.includes("ไม่ใช่ห้องเรียน") ? `ระบุเป็น: ${found}` : `ระดับชั้น: ${found}`;
+      } else {
+        // ไม่พบในชีต -> ไม่ Error แค่ไม่แสดงข้อมูลห้อง และให้ติ๊ก "ไม่ใช่ห้องเรียน" ได้ถ้าต้องการ
+        gradeBox.style.display = "block";
+        gradeText.textContent = "ไม่พบข้อมูลห้องในชีต (กรอกต่อได้ตามปกติ)";
       }
     }
 
+    buildingSelect.addEventListener("change", () => {
+      notClassroomCheck.checked = false;
+      updateGradeDisplay();
+    });
     roomInput.addEventListener("input", () => {
       notClassroomCheck.checked = false;
       updateGradeDisplay();
@@ -331,7 +344,7 @@
       if (!otherIssueCb.checked) otherIssueText.value = "";
     });
 
-    // จัดการรูปภาพ + บีบอัดขนาดฝั่งหน้าเว็บก่อนส่ง (ลดเวลาอัปโหลด)
+    // บีบอัดรูปฝั่งหน้าเว็บก่อนส่ง เพื่อลดเวลาอัปโหลด
     const photoInput = document.getElementById("photoInput");
     const forgotPhotoCb = document.getElementById("forgotPhotoCb");
     const photoPreview = document.getElementById("photoPreview");
@@ -379,7 +392,6 @@
       }
     });
 
-    // เรนเดอร์รายการห้องที่เพิ่มแล้ว
     function renderQueue() {
       const listEl = document.getElementById("queuedList");
       const countEl = document.getElementById("queueCount");
@@ -396,7 +408,7 @@
       listEl.innerHTML = queuedRooms.map((item, idx) => `
         <div class="queued-item">
           <div class="queued-meta">
-            <div><strong>${idx + 1}. ${item.building} | ห้อง ${item.room}</strong> ${item.grade ? `(${item.grade})` : ""}</div>
+            <div><strong>${idx + 1}. ${item.building} | ห้อง ${item.room}</strong> ${item.grade && item.grade !== "-" ? `(${item.grade})` : ""}</div>
             <div>ปัญหา: ${item.issuesSummary}</div>
             <div>รูปภาพ: ${item.forgotPhoto ? "ลืมถ่ายรูป" : (item.hasPhoto ? "แนบรูปแล้ว" : "ไม่ได้แนบ")}</div>
           </div>
@@ -428,13 +440,13 @@
       roomInput.focus();
     }
 
-    // ปุ่มเพิ่มห้องถัดไป (คง วันที่ และ ตึก ไว้)
+    // เพิ่มห้องถัดไป โดยคง วันที่ และ อาคาร ไว้เหมือนเดิม
     document.getElementById("addRoomBtn").addEventListener("click", () => {
       const statusMsg = document.getElementById("statusMsg");
       statusMsg.textContent = "";
 
       const inspectDate = dateInput.value;
-      const building = document.getElementById("buildingSelect").value;
+      const building = buildingSelect.value;
       const room = roomInput.value.trim();
 
       if (!inspectDate) {
@@ -442,7 +454,7 @@
         return;
       }
       if (!building) {
-        alert("กรุณาเลือกตึกก่อนครับ");
+        alert("กรุณาเลือกอาคารก่อนครับ");
         return;
       }
       if (!room) {
@@ -474,13 +486,11 @@
         return;
       }
 
-      const gradeLabel = detectGradeLabel(room);
-
       queuedRooms.push({
         date: inspectDate,
         building: building,
         room: room,
-        grade: gradeLabel || (notClassroomCheck.checked ? "ไม่ใช่ห้องเรียน" : "-"),
+        grade: resolveRoomLabel() || "-",
         issues: selectedIssues,
         issuesSummary: selectedIssues.join(", "),
         forgotPhoto: forgotPhotoCb.checked,
@@ -492,7 +502,7 @@
       resetRoomFieldsOnly();
     });
 
-    // ปุ่มยืนยันและส่งข้อมูลทั้งหมดแบบ Batch เดียวจบ
+    // ส่งข้อมูลทั้งหมดแบบ Batch เดียวจบ
     document.getElementById("submitAllBtn").addEventListener("click", async () => {
       const signer = document.getElementById("signerName").value.trim();
       const statusMsg = document.getElementById("statusMsg");
@@ -544,7 +554,22 @@
       }
     });
 
-    async function initLiff() {
+    async function loadRoomDirectoryOnce() {
+      if (!GAS_URL || GAS_URL === "YOUR_GAS_WEB_APP_URL") return;
+      try {
+        const res = await fetch(`${GAS_URL}?action=get_room_directory`);
+        const data = await res.json();
+        if (data.status === "success" && Array.isArray(data.rooms)) {
+          roomDirectory = data.rooms;
+          updateGradeDisplay();
+        }
+      } catch (e) {
+        // ไม่ Error หากโหลดผังห้องไม่สำเร็จ ให้ใช้งานต่อได้ตามปกติ
+      }
+    }
+
+    async function initApp() {
+      loadRoomDirectoryOnce();
       try {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
@@ -555,11 +580,11 @@
         lineUid = profile.userId || "";
         lineDisplayName = profile.displayName || "";
       } catch (e) {
-        // กรณีเปิดทดสอบนอกบริบท LIFF
+        // เปิดใช้งานนอกบริบท LIFF ได้
       }
     }
 
-    initLiff();
+    initApp();
   </script>
 </body>
 </html>
