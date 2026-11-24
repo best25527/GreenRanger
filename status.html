@@ -3,71 +3,315 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>สรุปสถิติการตรวจ</title>
+  <title>สถิติการตรวจอาคาร (Admin)</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 16px; background: #f5f7fa; }
-    .card { background: #fff; padding: 16px; border-radius: 12px; max-width: 560px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .nav { display: flex; gap: 8px; margin-bottom: 14px; }
-    .nav a { flex: 1; text-align: center; padding: 8px; background: #eef1f5; border-radius: 8px; text-decoration: none; color: #222; font-size: 14px; }
-    .nav a.active { background: #222; color: #fff; }
-    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin-top: 10px; }
+    :root {
+      --bg: #f3f6f4;
+      --card: #ffffff;
+      --primary: #15803d;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 14px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container { max-width: 720px; margin: 0 auto 40px; }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+    .card-title { font-size: 16px; font-weight: 700; margin: 0 0 12px; color: var(--primary); }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-top: 8px; margin-bottom: 4px; }
+    select, input[type="date"], button {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      background: #fff;
+    }
+    button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      font-weight: 700;
+      margin-top: 12px;
+      cursor: pointer;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .stat-box {
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); }
+    .stat-val { font-size: 18px; font-weight: 700; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    th, td { border: 1px solid var(--border); padding: 8px; text-align: left; }
+    th { background: #f3f4f6; }
+    .denied { text-align: center; padding: 36px 16px; color: #991b1b; font-weight: 700; }
+    .muted { color: var(--muted); font-size: 13px; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="nav">
-      <a href="index.html">รายงาน</a>
-      <a href="history.html">ประวัติ</a>
-      <a href="status.html" class="active">สถิติ</a>
+  <div class="container">
+    <div id="accessDeniedCard" class="card denied" style="display: none;">
+      ระบบสถิตินี้สงวนสิทธิ์สำหรับ Admin เท่านั้นครับ
     </div>
 
-    <h3>สรุปสถิติภาพรวม</h3>
-    <div id="statsContainer">กำลังโหลดสถิติ...</div>
+    <div id="adminDashboard" style="display: none;">
+      <div class="card">
+        <h2 class="card-title">ตัวกรองและรูปแบบการแสดงสถิติ (Admin)</h2>
+
+        <div class="grid-2">
+          <div>
+            <label for="displayMode">รูปแบบการแสดงผล</label>
+            <select id="displayMode">
+              <option value="table">ตาราง (Table)</option>
+              <option value="pie">แผนภูมิวงกลม (Pie Chart)</option>
+              <option value="bar">แผนภูมิแท่ง (Bar Chart)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="buildingFilter">เลือกอาคาร</label>
+            <select id="buildingFilter">
+              <option value="ALL">ทุกอาคาร</option>
+              <option value="อาคาร 3">อาคาร 3</option>
+              <option value="อาคาร 5">อาคาร 5</option>
+              <option value="อาคาร 9">อาคาร 9</option>
+              <option value="อาคาร 10 (3-5)">อาคาร 10 (3-5)</option>
+              <option value="อาคาร 10 (6-8)">อาคาร 10 (6-8)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="startDate">ตั้งแต่วันที่</label>
+            <input type="date" id="startDate" />
+          </div>
+
+          <div>
+            <label for="endDate">ถึงวันที่</label>
+            <input type="date" id="endDate" />
+          </div>
+        </div>
+
+        <button type="button" id="applyFilterBtn">อัปเดตสถิติ</button>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">ค่ากลางทางสถิติ (จำนวนจุดปัญหาต่อวัน)</h2>
+        <div class="stats-grid" id="centralTendencyBox"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">การแสดงผลข้อมูล</h2>
+        <div id="tableView"></div>
+        <canvas id="chartCanvas" style="display: none; max-height: 360px;"></canvas>
+      </div>
+    </div>
   </div>
 
   <script>
     const LIFF_ID = "2012781938-SGvi6d7Y";
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_cZnCMzebyoaPd7BwyyrliX52wOBU2pyEJ7R0VTgzbne6jAh24dRYREu0V9KSMU_4/exec";
 
-    async function loadStats() {
-      const container = document.getElementById("statsContainer");
-      await liff.init({ liffId: LIFF_ID });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
+    let rawRows = [];
+    let chartInstance = null;
+
+    function calcMean(arr) {
+      if (!arr.length) return 0;
+      const sum = arr.reduce((a, b) => a + b, 0);
+      return Number((sum / arr.length).toFixed(2));
+    }
+
+    function calcMedian(arr) {
+      if (!arr.length) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0
+        ? sorted[mid]
+        : Number(((sorted[mid - 1] + sorted[mid]) / 2).toFixed(2));
+    }
+
+    function calcMode(arr) {
+      if (!arr.length) return "-";
+      const freq = {};
+      let maxCount = 0;
+      for (const n of arr) {
+        freq[n] = (freq[n] || 0) + 1;
+        if (freq[n] > maxCount) maxCount = freq[n];
       }
+      const modes = Object.keys(freq).filter(k => freq[k] === maxCount);
+      return `${modes.join(", ")} (${maxCount} ครั้ง)`;
+    }
 
-      try {
-        const res = await fetch(`${GAS_URL}?action=get_stats`);
-        const data = await res.json();
-        const rows = data.rows || [];
+    function getFilteredRows() {
+      const building = document.getElementById("buildingFilter").value;
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
 
-        const statusCount = {};
-        for (let i = 0; i < rows.length; i++) {
-          const st = rows[i][5] || "ไม่ระบุสถานะ"; // คอลัมน์ที่ 6 (index 5) คือสถานะ
-          statusCount[st] = (statusCount[st] || 0) + 1;
+      // โครงสร้างแถว: [0]Timestamp, [1]Date (YYYY-MM-DD), [2]Building, [3]Room, [4]Grade, [5]Issues
+      return rawRows.filter(r => {
+        const rowDate = String(r[1] || "").slice(0, 10);
+        const rowBuilding = String(r[2] || "").trim();
+
+        if (building !== "ALL" && rowBuilding !== building) return false;
+        if (startDate && rowDate && rowDate < startDate) return false;
+        if (endDate && rowDate && rowDate > endDate) return false;
+        return true;
+      });
+    }
+
+    function renderStatsAndView() {
+      const filtered = getFilteredRows();
+      const mode = document.getElementById("displayMode").value;
+
+      const countByDate = {};
+      const countByBuilding = {};
+
+      filtered.forEach(r => {
+        const d = String(r[1] || "ไม่ระบุวันที่").slice(0, 10);
+        const b = String(r[2] || "ไม่ระบุอาคาร").trim();
+        countByDate[d] = (countByDate[d] || 0) + 1;
+        countByBuilding[b] = (countByBuilding[b] || 0) + 1;
+      });
+
+      const dailyCounts = Object.values(countByDate);
+      document.getElementById("centralTendencyBox").innerHTML = `
+        <div class="stat-box">
+          <div class="stat-label">จำนวนรายการที่พบ</div>
+          <div class="stat-val">${filtered.length}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">ค่าเฉลี่ย (Mean / วัน)</div>
+          <div class="stat-val">${calcMean(dailyCounts)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">มัธยฐาน (Median / วัน)</div>
+          <div class="stat-val">${calcMedian(dailyCounts)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">ฐานนิยม (Mode / วัน)</div>
+          <div class="stat-val" style="font-size:14px;">${calcMode(dailyCounts)}</div>
+        </div>
+      `;
+
+      const tableDiv = document.getElementById("tableView");
+      const canvas = document.getElementById("chartCanvas");
+
+      if (mode === "table") {
+        canvas.style.display = "none";
+        tableDiv.style.display = "block";
+        if (filtered.length === 0) {
+          tableDiv.innerHTML = '<div class="muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>';
+          return;
         }
-
-        const statusHtml = Object.keys(statusCount).length
-          ? Object.entries(statusCount).map(([k, v]) => `<div>• ${k}: <strong>${v}</strong> รายการ</div>`).join("")
-          : "<div>ยังไม่มีข้อมูล</div>";
-
-        container.innerHTML = `
-          <div class="stat-box">
-            <div>จำนวนรายงานทั้งหมด: <strong>${rows.length}</strong> รายการ</div>
-          </div>
-          <div class="stat-box">
-            <div style="margin-bottom:6px;"><strong>แยกตามสถานะ</strong></div>
-            ${statusHtml}
-          </div>
+        tableDiv.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>อาคาร</th>
+                <th>ห้อง</th>
+                <th>ชั้น/ประเภท</th>
+                <th>ปัญหาที่พบ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map(r => `
+                <tr>
+                  <td>${String(r[1] || "").slice(0, 10)}</td>
+                  <td>${r[2] || "-"}</td>
+                  <td>${r[3] || "-"}</td>
+                  <td>${r[4] || "-"}</td>
+                  <td>${r[5] || "-"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
         `;
-      } catch (err) {
-        container.textContent = "โหลดข้อมูลสถิติไม่สำเร็จ";
+      } else {
+        tableDiv.style.display = "none";
+        canvas.style.display = "block";
+
+        const labels = Object.keys(countByBuilding);
+        const values = Object.values(countByBuilding);
+
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(canvas.getContext("2d"), {
+          type: mode,
+          data: {
+            labels: labels.length ? labels : ["ไม่มีข้อมูล"],
+            datasets: [{
+              label: "จำนวนจุดปัญหา",
+              data: values.length ? values : [0],
+              backgroundColor: ["#16a34a", "#0284c7", "#eab308", "#dc2626", "#9333ea"]
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom" } }
+          }
+        });
       }
     }
 
-    loadStats();
+    document.getElementById("applyFilterBtn").addEventListener("click", renderStatsAndView);
+
+    async function initAdminStatus() {
+      let uid = "";
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+        const profile = await liff.getProfile();
+        uid = profile.userId || "";
+      } catch (e) {
+        const params = new URLSearchParams(window.location.search);
+        uid = params.get("uid") || "";
+      }
+
+      try {
+        const res = await fetch(`${GAS_URL}?action=get_admin_stats&uid=${encodeURIComponent(uid)}`);
+        const data = await res.json();
+
+        if (!data.authorized || data.role !== "Admin") {
+          document.getElementById("accessDeniedCard").style.display = "block";
+          return;
+        }
+
+        document.getElementById("adminDashboard").style.display = "block";
+        rawRows = data.rows || [];
+        renderStatsAndView();
+      } catch (err) {
+        document.getElementById("accessDeniedCard").textContent = "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์";
+        document.getElementById("accessDeniedCard").style.display = "block";
+      }
+    }
+
+    initAdminStatus();
   </script>
 </body>
 </html>
