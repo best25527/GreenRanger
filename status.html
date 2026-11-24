@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>สรุปสถิติการตรวจ</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 16px; background: #f5f7fa; }
+    .card { background: #fff; padding: 16px; border-radius: 12px; max-width: 560px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .nav { display: flex; gap: 8px; margin-bottom: 14px; }
+    .nav a { flex: 1; text-align: center; padding: 8px; background: #eef1f5; border-radius: 8px; text-decoration: none; color: #222; font-size: 14px; }
+    .nav a.active { background: #222; color: #fff; }
+    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="nav">
+      <a href="index.html">รายงาน</a>
+      <a href="history.html">ประวัติ</a>
+      <a href="status.html" class="active">สถิติ</a>
+    </div>
+
+    <h3>สรุปสถิติภาพรวม</h3>
+    <div id="statsContainer">กำลังโหลดสถิติ...</div>
+  </div>
+
+  <script>
+    const LIFF_ID = "YOUR_LIFF_ID";
+    const GAS_URL = "YOUR_GAS_WEB_APP_URL";
+
+    async function loadStats() {
+      const container = document.getElementById("statsContainer");
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      try {
+        const res = await fetch(`${GAS_URL}?action=get_stats`);
+        const data = await res.json();
+        const rows = data.rows || [];
+
+        const statusCount = {};
+        for (let i = 0; i < rows.length; i++) {
+          const st = rows[i][5] || "ไม่ระบุสถานะ"; // คอลัมน์ที่ 6 (index 5) คือสถานะ
+          statusCount[st] = (statusCount[st] || 0) + 1;
+        }
+
+        const statusHtml = Object.keys(statusCount).length
+          ? Object.entries(statusCount).map(([k, v]) => `<div>• ${k}: <strong>${v}</strong> รายการ</div>`).join("")
+          : "<div>ยังไม่มีข้อมูล</div>";
+
+        container.innerHTML = `
+          <div class="stat-box">
+            <div>จำนวนรายงานทั้งหมด: <strong>${rows.length}</strong> รายการ</div>
+          </div>
+          <div class="stat-box">
+            <div style="margin-bottom:6px;"><strong>แยกตามสถานะ</strong></div>
+            ${statusHtml}
+          </div>
+        `;
+      } catch (err) {
+        container.textContent = "โหลดข้อมูลสถิติไม่สำเร็จ";
+      }
+    }
+
+    loadStats();
+  </script>
+</body>
+</html>
