@@ -124,14 +124,14 @@
 
           <!-- แสดงเมื่อเลือก "พิจารณารายตึก" -->
           <div id="singleBuildingFocusWrap" style="display: none;">
-            <label for="issueFocusFilter">โฟกัสปัญหา (ในตึกที่เลือก)</label>
+            <label for="issueFocusFilter">โฟกัสปัญหา</label>
             <select id="issueFocusFilter">
               <option value="ALL_OVERVIEW">ภาพรวมตึก (ห้องมีปัญหานับเป็น 1)</option>
-              <option value="ไม่ปิดไฟ">ไม่ปิดไฟ</option>
-              <option value="ไม่ปิดพัดลม">ไม่ปิดพัดลม</option>
-              <option value="ไม่ปิดเครื่องปรับอากาศ">ไม่ปิดเครื่องปรับอากาศ</option>
-              <option value="ไม่ปิดทีวี/โปรเจคเตอร์">ไม่ปิดทีวี/โปรเจคเตอร์</option>
-              <option value="อื่นๆ">อื่นๆ</option>
+              <option value="LIGHT">ไฟ (ไม่ปิดไฟ)</option>
+              <option value="AC">แอร์ (ไม่ปิดเครื่องปรับอากาศ)</option>
+              <option value="FAN">พัดลม (ไม่ปิดพัดลม)</option>
+              <option value="TV">ทีวี (ไม่ปิดทีวี/โปรเจคเตอร์)</option>
+              <option value="OTHER">อื่นๆ</option>
             </select>
           </div>
 
@@ -167,6 +167,15 @@
     const LIFF_ID = "2012781938-SGvi6d7Y";
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_cZnCMzebyoaPd7BwyyrliX52wOBU2pyEJ7R0VTgzbne6jAh24dRYREu0V9KSMU_4/exec";
 
+    const FOCUS_LABELS = {
+      ALL_OVERVIEW: "ภาพรวมตึก",
+      LIGHT: "ไฟ",
+      AC: "แอร์",
+      FAN: "พัดลม",
+      TV: "ทีวี",
+      OTHER: "อื่นๆ"
+    };
+
     let rawRows = [];
     let chartInstance = null;
 
@@ -195,15 +204,37 @@
       return true;
     }
 
-    function matchesIssueFocus(issuesText, focusVal) {
+    // แยกปัญหาแต่ละชิ้นในแถว ออกเป็น { category: "LIGHT"|"AC"|"FAN"|"TV"|"OTHER", rawLabel: string, otherDetail: string }
+    function parseIssueTokens(issuesText) {
       const text = String(issuesText || "").trim();
-      if (!text || text === "ทุกห้องเรียบร้อยหมด") return false;
-      if (focusVal === "ALL_OVERVIEW") return true;
-      if (focusVal === "อื่นๆ") {
-        return text.includes("อื่นๆ") || !["ไม่ปิดไฟ", "ไม่ปิดพัดลม", "ไม่ปิดเครื่องปรับอากาศ", "ไม่ปิดทีวี/โปรเจคเตอร์"]
-          .some(preset => text.split(",").map(s => s.trim()).includes(preset));
-      }
-      return text.split(",").map(s => s.trim()).includes(focusVal);
+      if (!text || text === "ทุกห้องเรียบร้อยหมด") return [];
+
+      return text
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(token => {
+          if (token.includes("ไฟ")) {
+            return { category: "LIGHT", rawLabel: token, otherDetail: "" };
+          }
+          if (token.includes("แอร์") || token.includes("เครื่องปรับอากาศ")) {
+            return { category: "AC", rawLabel: token, otherDetail: "" };
+          }
+          if (token.includes("พัดลม")) {
+            return { category: "FAN", rawLabel: token, otherDetail: "" };
+          }
+          if (token.includes("ทีวี") || token.includes("โปรเจคเตอร์")) {
+            return { category: "TV", rawLabel: token, otherDetail: "" };
+          }
+
+          // หมวด "อื่นๆ"
+          const detail = token.replace(/^อื่นๆ\s*:?\s*/i, "").trim();
+          return {
+            category: "OTHER",
+            rawLabel: "อื่นๆ",
+            otherDetail: detail || token
+          };
+        });
     }
 
     function calcMean(arr) {
@@ -237,8 +268,6 @@
       const startDate = document.getElementById("startDate").value;
       const endDate = document.getElementById("endDate").value;
 
-      // โครงสร้าง 11 คอลัมน์:
-      // [0]Timestamp, [1]Date, [2]Building, [3]Group, [4]Room, [5]Grade_Or_Type, [6]Issues
       return rawRows.filter(r => {
         const rowDate = String(r[1] || "").slice(0, 10);
         if (startDate && rowDate && rowDate < startDate) return false;
@@ -263,7 +292,6 @@
       let dailySeries = [];
       let mainMetricLabel = "";
       let rowsForTable = [];
-      let tableColumns = [];
 
       if (selectedBuilding === "ALL") {
         const metricMode = allBuildingsMetricEl.value;
@@ -308,9 +336,8 @@
           rowsForTable = allBuildingsList.map((b, i) => ({
             rank: i + 1,
             building: b,
-            roomCount: values[i]
+            countVal: values[i]
           }));
-          tableColumns = ["ลำดับ", "อาคาร", "จำนวนห้องที่มีปัญหา (ห้อง)"];
         } else {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แสดงความถี่ / รายการปัญหาที่บันทึกในแต่ละตึก";
           mainMetricLabel = "จำนวนรายการ/ความถี่ปัญหา";
@@ -323,39 +350,52 @@
           rowsForTable = allBuildingsList.map((b, i) => ({
             rank: i + 1,
             building: b,
-            freqCount: values[i]
+            countVal: values[i]
           }));
-          tableColumns = ["ลำดับ", "อาคาร", "ความถี่ / จำนวนรายการปัญหา"];
         }
       } else {
         // พิจารณารายตึก (เลือกอาคารเฉพาะ)
-        const focusIssue = issueFocusFilterEl.value;
-        const buildingProblemRows = dateRows.filter(r => {
+        const focusKey = issueFocusFilterEl.value;
+        const focusThai = FOCUS_LABELS[focusKey] || "อื่นๆ";
+
+        const buildingRows = dateRows.filter(r => {
           const b = String(r[2] || "").trim();
-          return b === selectedBuilding && isProblemRow(r) && matchesIssueFocus(r[6], focusIssue);
+          return b === selectedBuilding && isProblemRow(r);
         });
 
-        // นับความถี่ต่อห้อง และเก็บรายละเอียดปัญหา/จำนวนครั้งที่พบในห้องนั้น
         const roomStats = {};
         const uniqueRoomsByDate = {};
 
-        buildingProblemRows.forEach(r => {
+        buildingRows.forEach(r => {
           const d = String(r[1] || "ไม่ระบุวันที่").slice(0, 10);
           const rawRoom = String(r[4] || "-").trim();
           const roomKey = normalizeRoomKey(rawRoom);
           const gradeVal = String(r[5] || "").trim();
-          const issuesVal = String(r[6] || "").trim();
+          const tokens = parseIssueTokens(r[6]);
+
+          const matchingTokens = focusKey === "ALL_OVERVIEW"
+            ? tokens
+            : tokens.filter(t => t.category === focusKey);
+
+          if (matchingTokens.length === 0) return;
 
           if (!roomStats[roomKey]) {
             roomStats[roomKey] = {
               room: rawRoom,
               grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
               frequency: 0,
-              issuesSet: new Set()
+              issuesSet: new Set(),
+              otherDetailsSet: new Set()
             };
           }
-          roomStats[roomKey].frequency += 1;
-          issuesVal.split(",").map(s => s.trim()).filter(Boolean).forEach(it => roomStats[roomKey].issuesSet.add(it));
+
+          roomStats[roomKey].frequency += matchingTokens.length;
+          matchingTokens.forEach(t => {
+            roomStats[roomKey].issuesSet.add(t.rawLabel);
+            if (t.category === "OTHER" && t.otherDetail) {
+              roomStats[roomKey].otherDetailsSet.add(t.otherDetail);
+            }
+          });
 
           if (!uniqueRoomsByDate[d]) uniqueRoomsByDate[d] = new Set();
           uniqueRoomsByDate[d].add(roomKey);
@@ -363,14 +403,18 @@
 
         const sortedRooms = Object.values(roomStats).sort((a, b) => b.frequency - a.frequency);
 
-        if (focusIssue === "ALL_OVERVIEW") {
-          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — ห้องที่มีปัญหานับเป็น 1 ห้อง และแสดงความถี่การพบปัญหาของแต่ละห้อง`;
-          mainMetricLabel = "ความถี่การพบปัญหาของห้อง (ครั้ง)";
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก — ห้องมีปัญหานับเป็น 1)`;
+        if (focusKey === "ALL_OVERVIEW") {
+          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — ห้องที่มีปัญหานับเป็น 1 ห้อง และแสดงความถี่ของแต่ละห้อง`;
+          mainMetricLabel = "ความถี่ของห้องที่มีปัญหา (ครั้ง)";
+          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
+        } else if (focusKey === "OTHER") {
+          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "อื่นๆ" (กราฟรวมเป็น "อื่นๆ" และตารางระบุรายละเอียดด้วยว่าคืออะไร)`;
+          mainMetricLabel = "อื่นๆ";
+          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "อื่นๆ"`;
         } else {
-          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "${focusIssue}" แสดงความถี่ของห้องที่พบปัญหานี้`;
-          mainMetricLabel = `ความถี่ "${focusIssue}" (ครั้ง)`;
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusIssue}"`;
+          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "${focusThai}" แสดงความถี่ของห้องที่พบปัญหานี้`;
+          mainMetricLabel = `ความถี่ "${focusThai}" (ครั้ง)`;
+          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusThai}"`;
         }
 
         labels = sortedRooms.map(item => `ห้อง ${item.room}`);
@@ -383,9 +427,9 @@
           grade: item.grade,
           roomAsOne: 1,
           frequency: item.frequency,
-          issuesList: Array.from(item.issuesSet).join(", ")
+          issuesList: Array.from(item.issuesSet).join(", "),
+          otherSpecify: Array.from(item.otherDetailsSet).join(", ") || "-"
         }));
-        tableColumns = ["ลำดับ", "ห้อง", "ชั้น/ประเภท", "นับห้อง (ห้องละ 1)", "ความถี่ที่พบ (ครั้ง)", "ปัญหาที่พบ"];
       }
 
       const totalCountDisplay = selectedBuilding === "ALL"
@@ -394,7 +438,9 @@
 
       const totalLabelDisplay = selectedBuilding === "ALL"
         ? mainMetricLabel
-        : (issueFocusFilterEl.value === "ALL_OVERVIEW" ? "จำนวนห้องที่มีปัญหาในตึก" : "จำนวนห้องที่พบปัญหานี้");
+        : (issueFocusFilterEl.value === "ALL_OVERVIEW"
+            ? "จำนวนห้องที่มีปัญหาในตึก"
+            : `จำนวนห้องที่พบปัญหา "${FOCUS_LABELS[issueFocusFilterEl.value]}"`);
 
       document.getElementById("centralTendencyBox").innerHTML = `
         <div class="stat-box">
@@ -425,13 +471,17 @@
         }
 
         if (selectedBuilding === "ALL") {
+          const metricColTitle = allBuildingsMetricEl.value === "problem_rooms"
+            ? "จำนวนห้องที่มีปัญหา (ห้อง)"
+            : "ความถี่ / จำนวนรายการปัญหา";
+
           tableDiv.innerHTML = `
             <table>
               <thead>
                 <tr>
-                  <th>${tableColumns[0]}</th>
-                  <th>${tableColumns[1]}</th>
-                  <th>${tableColumns[2]}</th>
+                  <th>ลำดับ</th>
+                  <th>อาคาร</th>
+                  <th>${metricColTitle}</th>
                 </tr>
               </thead>
               <tbody>
@@ -439,23 +489,25 @@
                   <tr>
                     <td>${row.rank}</td>
                     <td>${row.building}</td>
-                    <td><strong>${allBuildingsMetricEl.value === "problem_rooms" ? row.roomCount : row.freqCount}</strong></td>
+                    <td><strong>${row.countVal}</strong></td>
                   </tr>
                 `).join("")}
               </tbody>
             </table>
           `;
         } else {
+          const isOtherFocus = issueFocusFilterEl.value === "OTHER";
           tableDiv.innerHTML = `
             <table>
               <thead>
                 <tr>
-                  <th>${tableColumns[0]}</th>
-                  <th>${tableColumns[1]}</th>
-                  <th>${tableColumns[2]}</th>
-                  <th>${tableColumns[3]}</th>
-                  <th>${tableColumns[4]}</th>
-                  <th>${tableColumns[5]}</th>
+                  <th>ลำดับ</th>
+                  <th>ห้อง</th>
+                  <th>ชั้น/ประเภท</th>
+                  <th>นับห้อง (ห้องละ 1)</th>
+                  <th>ความถี่ที่พบ (ครั้ง)</th>
+                  <th>ปัญหาที่พบ</th>
+                  ${isOtherFocus ? "<th>ระบุว่าคืออะไร (อื่นๆ)</th>" : ""}
                 </tr>
               </thead>
               <tbody>
@@ -467,6 +519,7 @@
                     <td>${row.roomAsOne}</td>
                     <td><strong>${row.frequency}</strong></td>
                     <td>${row.issuesList}</td>
+                    ${isOtherFocus ? `<td><strong>${row.otherSpecify}</strong></td>` : ""}
                   </tr>
                 `).join("")}
               </tbody>
@@ -477,13 +530,18 @@
         tableDiv.style.display = "none";
         canvas.style.display = "block";
 
+        // ถ้าโฟกัสเป็น "อื่นๆ" บนกราฟแท่งหรือวงกลม ให้ชื่อชุดข้อมูล/ป้ายกำกับเป็น "อื่นๆ" ชัดเจน
+        const chartDatasetLabel = (selectedBuilding !== "ALL" && issueFocusFilterEl.value === "OTHER")
+          ? "อื่นๆ"
+          : mainMetricLabel;
+
         if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(canvas.getContext("2d"), {
           type: mode,
           data: {
             labels: labels.length ? labels : ["ไม่มีข้อมูล"],
             datasets: [{
-              label: mainMetricLabel,
+              label: chartDatasetLabel,
               data: values.length ? values : [0],
               backgroundColor: [
                 "#16a34a", "#0284c7", "#eab308", "#dc2626", "#9333ea",
