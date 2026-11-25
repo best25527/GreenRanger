@@ -302,10 +302,12 @@
         <label for="photoInput">แนบรูปถ่ายหลักฐาน (เลือกได้หลายรูป)</label>
         <input type="file" id="photoInput" accept="image/*" capture="environment" multiple />
 
-        <label class="check-item" style="margin-top: 8px;">
-          <input type="checkbox" id="forgotPhotoCb" />
-          <span>ลืมถ่ายรูป</span>
-        </label>
+        <div id="forgotPhotoWrap" style="margin-top: 8px;">
+          <label class="check-item">
+            <input type="checkbox" id="forgotPhotoCb" />
+            <span>ลืมถ่ายรูป</span>
+          </label>
+        </div>
 
         <div id="photoPreviewList" class="photo-preview-list"></div>
       </div>
@@ -326,10 +328,12 @@
         <div id="previewImages" class="preview-images"></div>
       </div>
 
-      <label class="check-item" style="margin-top: 12px;">
-        <input type="checkbox" id="allClearCb" />
-        <span>ทุกห้องเรียบร้อยหมด (กดได้เฉพาะเมื่อไม่มีห้องที่มีปัญหาในรายการ)</span>
-      </label>
+    <div id="allClearWrap" style="margin-top: 12px;">
+        <label class="check-item">
+          <input type="checkbox" id="allClearCb" />
+          <span>ทุกห้องเรียบร้อยหมด</span>
+        </label>
+      </div>
 
       <label for="signerName">ลงชื่อยืนยันผู้ตรวจ</label>
       <input type="text" id="signerName" placeholder="พิมพ์ชื่อ-นามสกุล หรือชื่อเล่นผู้ตรวจ" />
@@ -357,18 +361,34 @@
     const gradeText = document.getElementById("gradeText");
     const notClassroomCheck = document.getElementById("notClassroomCheck");
     const allClearCb = document.getElementById("allClearCb");
+    const forgotPhotoWrap = document.getElementById("forgotPhotoWrap");
+    const allClearWrap = document.getElementById("allClearWrap");
 
     const today = new Date();
     dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
+    function syncForgotPhotoVisibility() {
+      const hasPhotos = currentCompressedPhotos.length > 0;
+      if (hasPhotos) {
+        forgotPhotoCb.checked = false;
+        forgotPhotoWrap.style.display = "none";
+      } else {
+        forgotPhotoWrap.style.display = "block";
+      }
+    }
+
     function updateSubmitButtonState() {
       const submitBtn = document.getElementById("submitAllBtn");
-      if (queuedRooms.length > 0) {
+      const hasQueued = queuedRooms.length > 0;
+
+      if (hasQueued) {
         allClearCb.checked = false;
         allClearCb.disabled = true;
+        allClearWrap.style.display = "none";
         submitBtn.disabled = false;
       } else {
         allClearCb.disabled = false;
+        allClearWrap.style.display = "block";
         submitBtn.disabled = !allClearCb.checked;
       }
     }
@@ -469,18 +489,19 @@
       currentCompressedPhotos = [];
       photoPreviewList.innerHTML = "";
 
-      if (files.length === 0) return;
-      forgotPhotoCb.checked = false;
-
-      for (const file of files) {
-        const compressed = await compressImageToBase64(file);
-        currentCompressedPhotos.push(compressed);
-        const img = document.createElement("img");
-        img.src = compressed;
-        img.className = "photo-preview-thumb";
-        img.alt = "ตัวอย่างรูปภาพ";
-        photoPreviewList.appendChild(img);
+      if (files.length > 0) {
+        forgotPhotoCb.checked = false;
+        for (const file of files) {
+          const compressed = await compressImageToBase64(file);
+          currentCompressedPhotos.push(compressed);
+          const img = document.createElement("img");
+          img.src = compressed;
+          img.className = "photo-preview-thumb";
+          img.alt = "ตัวอย่างรูปภาพ";
+          photoPreviewList.appendChild(img);
+        }
       }
+      syncForgotPhotoVisibility();
     });
 
     forgotPhotoCb.addEventListener("change", () => {
@@ -563,6 +584,7 @@
       forgotPhotoCb.checked = false;
       currentCompressedPhotos = [];
       photoPreviewList.innerHTML = "";
+      syncForgotPhotoVisibility();
       roomInput.focus();
     }
 
@@ -723,6 +745,8 @@
     }
 
     async function initApp() {
+      syncForgotPhotoVisibility();
+      updateSubmitButtonState();
       loadRoomDirectoryOnce();
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -739,6 +763,3 @@
     }
 
     initApp();
-  </script>
-</body>
-</html>
