@@ -363,6 +363,14 @@
     const allClearCb = document.getElementById("allClearCb");
     const forgotPhotoWrap = document.getElementById("forgotPhotoWrap");
     const allClearWrap = document.getElementById("allClearWrap");
+    const otherIssueCb = document.getElementById("otherIssueCb");
+    const otherIssueWrap = document.getElementById("otherIssueWrap");
+    const otherIssueText = document.getElementById("otherIssueText");
+    const photoInput = document.getElementById("photoInput");
+    const forgotPhotoCb = document.getElementById("forgotPhotoCb");
+    const photoPreviewList = document.getElementById("photoPreviewList");
+    const submitBtn = document.getElementById("submitAllBtn");
+    const statusMsg = document.getElementById("statusMsg");
 
     const today = new Date();
     dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -378,9 +386,7 @@
     }
 
     function updateSubmitButtonState() {
-      const submitBtn = document.getElementById("submitAllBtn");
       const hasQueued = queuedRooms.length > 0;
-
       if (hasQueued) {
         allClearCb.checked = false;
         allClearCb.disabled = true;
@@ -450,17 +456,10 @@
     });
     notClassroomCheck.addEventListener("change", updateGradeDisplay);
 
-    const otherIssueCb = document.getElementById("otherIssueCb");
-    const otherIssueWrap = document.getElementById("otherIssueWrap");
-    const otherIssueText = document.getElementById("otherIssueText");
     otherIssueCb.addEventListener("change", () => {
       otherIssueWrap.style.display = otherIssueCb.checked ? "block" : "none";
       if (!otherIssueCb.checked) otherIssueText.value = "";
     });
-
-    const photoInput = document.getElementById("photoInput");
-    const forgotPhotoCb = document.getElementById("forgotPhotoCb");
-    const photoPreviewList = document.getElementById("photoPreviewList");
 
     function compressImageToBase64(file, maxWidth = 900, quality = 0.72) {
       return new Promise((resolve, reject) => {
@@ -589,7 +588,6 @@
     }
 
     document.getElementById("addRoomBtn").addEventListener("click", () => {
-      const statusMsg = document.getElementById("statusMsg");
       statusMsg.textContent = "";
 
       const inspectDate = dateInput.value;
@@ -654,10 +652,8 @@
       resetRoomFieldsOnly();
     });
 
-    document.getElementById("submitAllBtn").addEventListener("click", async () => {
+    submitBtn.addEventListener("click", async () => {
       const signer = document.getElementById("signerName").value.trim();
-      const statusMsg = document.getElementById("statusMsg");
-      const submitBtn = document.getElementById("submitAllBtn");
 
       if (!dateInput.value || !buildingSelect.value || !groupSelect.value) {
         alert("กรุณาเลือกวันที่ อาคาร และกลุ่มให้ครบก่อนครับ");
