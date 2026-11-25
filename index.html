@@ -99,16 +99,21 @@
       height: 18px;
       margin: 0;
       accent-color: var(--primary);
+      flex-shrink: 0;
     }
     .photo-box {
       margin-top: 8px;
     }
-    .photo-preview {
+    .photo-preview-list {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
       margin-top: 8px;
-      max-width: 100%;
-      max-height: 200px;
-      border-radius: 10px;
-      display: none;
+    }
+    .photo-preview-thumb {
+      max-width: 110px;
+      max-height: 110px;
+      border-radius: 8px;
       object-fit: cover;
       border: 1px solid #e5e7eb;
     }
@@ -143,11 +148,25 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .queued-meta {
       font-size: 13px;
       line-height: 1.45;
+      flex: 1;
+      min-width: 180px;
+    }
+    .btn-preview {
+      background: #e0f2fe;
+      color: #075985;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-right: 6px;
     }
     .btn-remove {
       background: #fee2e2;
@@ -158,7 +177,42 @@
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
-      flex-shrink: 0;
+    }
+    .preview-modal {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: #f9fafb;
+    }
+    .preview-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .btn-close-preview {
+      background: #e5e7eb;
+      color: #111827;
+      border: none;
+      border-radius: 7px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .preview-images {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .preview-images img {
+      max-width: 160px;
+      max-height: 160px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid #e5e7eb;
     }
     .muted { color: var(--muted); font-size: 13px; }
     #statusMsg {
@@ -171,7 +225,7 @@
 </head>
 <body>
   <div class="container">
-    <!-- ส่วนที่ 1: วัน และ อาคาร (คงไว้เมื่อกดเพิ่มห้องถัดไป) -->
+    <!-- ส่วนที่ 1: วัน อาคาร และกลุ่ม (คงไว้เมื่อกดเพิ่มห้องถัดไป) -->
     <div class="card">
       <h2 class="card-title">1. ข้อมูลรอบการตรวจ (คงไว้เมื่อเพิ่มห้อง)</h2>
 
@@ -186,6 +240,15 @@
         <option value="อาคาร 9">อาคาร 9</option>
         <option value="อาคาร 10 (3-5)">อาคาร 10 (3-5)</option>
         <option value="อาคาร 10 (6-8)">อาคาร 10 (6-8)</option>
+      </select>
+
+      <label for="groupSelect">เลือกกลุ่ม</label>
+      <select id="groupSelect" required>
+        <option value="" disabled selected>-- เลือกกลุ่ม --</option>
+        <option value="กลุ่ม A">กลุ่ม A</option>
+        <option value="กลุ่ม B">กลุ่ม B</option>
+        <option value="กลุ่ม C">กลุ่ม C</option>
+        <option value="กลุ่ม D">กลุ่ม D</option>
       </select>
     </div>
 
@@ -236,24 +299,37 @@
       </div>
 
       <div class="photo-box">
-        <label for="photoInput">แนบรูปถ่ายหลักฐาน</label>
-        <input type="file" id="photoInput" accept="image/*" capture="environment" />
+        <label for="photoInput">แนบรูปถ่ายหลักฐาน (เลือกได้หลายรูป)</label>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" multiple />
 
         <label class="check-item" style="margin-top: 8px;">
           <input type="checkbox" id="forgotPhotoCb" />
           <span>ลืมถ่ายรูป</span>
         </label>
 
-        <img id="photoPreview" class="photo-preview" alt="ตัวอย่างรูปภาพ" />
+        <div id="photoPreviewList" class="photo-preview-list"></div>
       </div>
 
       <button type="button" class="btn btn-add" id="addRoomBtn">+ เพิ่มห้องถัดไป</button>
     </div>
 
-    <!-- ส่วนที่ 3: รายการที่เพิ่มแล้ว + ลงชื่อยืนยัน + กดส่งครั้งเดียว -->
+    <!-- ส่วนที่ 3: รายการที่รอส่ง + ปุ่ม Preview รูป + ทุกห้องเรียบร้อยหมด + ลงชื่อยืนยัน -->
     <div class="card">
       <h2 class="card-title">3. รายการที่รอส่ง (<span id="queueCount">0</span> ห้อง)</h2>
       <div id="queuedList" class="muted">ยังไม่มีรายการห้องที่เพิ่มไว้</div>
+
+      <div id="previewModal" class="preview-modal">
+        <div class="preview-modal-header">
+          <strong id="previewTitle" style="font-size: 14px;">ตัวอย่างรูปภาพ</strong>
+          <button type="button" class="btn-close-preview" onclick="closePreviewModal()">ปิด</button>
+        </div>
+        <div id="previewImages" class="preview-images"></div>
+      </div>
+
+      <label class="check-item" style="margin-top: 12px;">
+        <input type="checkbox" id="allClearCb" />
+        <span>ทุกห้องเรียบร้อยหมด (กดได้เฉพาะเมื่อไม่มีห้องที่มีปัญหาในรายการ)</span>
+      </label>
 
       <label for="signerName">ลงชื่อยืนยันผู้ตรวจ</label>
       <input type="text" id="signerName" placeholder="พิมพ์ชื่อ-นามสกุล หรือชื่อเล่นผู้ตรวจ" />
@@ -270,21 +346,41 @@
     let lineUid = "";
     let lineDisplayName = "";
     let roomDirectory = [];
-    let currentCompressedBase64 = "";
+    let currentCompressedPhotos = [];
     let queuedRooms = [];
 
     const dateInput = document.getElementById("inspectDate");
     const buildingSelect = document.getElementById("buildingSelect");
+    const groupSelect = document.getElementById("groupSelect");
     const roomInput = document.getElementById("roomInput");
     const gradeBox = document.getElementById("gradeBox");
     const gradeText = document.getElementById("gradeText");
     const notClassroomCheck = document.getElementById("notClassroomCheck");
+    const allClearCb = document.getElementById("allClearCb");
 
-    // ตั้งค่าวันที่เริ่มต้นเป็นวันนี้
     const today = new Date();
     dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-    // ค้นหาข้อมูลห้องจากชีต Room_Directory ก่อน (ถ้าไม่เจอจะไม่ Error แค่ไม่ขึ้นข้อมูลห้อง)
+    function updateSubmitButtonState() {
+      const submitBtn = document.getElementById("submitAllBtn");
+      if (queuedRooms.length > 0) {
+        allClearCb.checked = false;
+        allClearCb.disabled = true;
+        submitBtn.disabled = false;
+      } else {
+        allClearCb.disabled = false;
+        submitBtn.disabled = !allClearCb.checked;
+      }
+    }
+
+    allClearCb.addEventListener("change", () => {
+      if (allClearCb.checked && queuedRooms.length > 0) {
+        allClearCb.checked = false;
+        alert("ยังมีรายการห้องที่มีปัญหาอยู่ในรายการรอส่ง จึงกด 'ทุกห้องเรียบร้อยหมด' ไม่ได้ครับ");
+      }
+      updateSubmitButtonState();
+    });
+
     function lookupRoomInfo(building, room) {
       if (!building || !room) return "";
       const matched = roomDirectory.find(
@@ -319,7 +415,6 @@
         gradeBox.style.display = "block";
         gradeText.textContent = found.includes("ไม่ใช่ห้องเรียน") ? `ระบุเป็น: ${found}` : `ระดับชั้น: ${found}`;
       } else {
-        // ไม่พบในชีต -> ไม่ Error แค่ไม่แสดงข้อมูลห้อง และให้ติ๊ก "ไม่ใช่ห้องเรียน" ได้ถ้าต้องการ
         gradeBox.style.display = "block";
         gradeText.textContent = "ไม่พบข้อมูลห้องในชีต (กรอกต่อได้ตามปกติ)";
       }
@@ -335,7 +430,6 @@
     });
     notClassroomCheck.addEventListener("change", updateGradeDisplay);
 
-    // แสดงช่องพิมพ์เพิ่มเมื่อเลือก "อื่นๆ"
     const otherIssueCb = document.getElementById("otherIssueCb");
     const otherIssueWrap = document.getElementById("otherIssueWrap");
     const otherIssueText = document.getElementById("otherIssueText");
@@ -344,10 +438,9 @@
       if (!otherIssueCb.checked) otherIssueText.value = "";
     });
 
-    // บีบอัดรูปฝั่งหน้าเว็บก่อนส่ง เพื่อลดเวลาอัปโหลด
     const photoInput = document.getElementById("photoInput");
     const forgotPhotoCb = document.getElementById("forgotPhotoCb");
-    const photoPreview = document.getElementById("photoPreview");
+    const photoPreviewList = document.getElementById("photoPreviewList");
 
     function compressImageToBase64(file, maxWidth = 900, quality = 0.72) {
       return new Promise((resolve, reject) => {
@@ -372,53 +465,86 @@
     }
 
     photoInput.addEventListener("change", async () => {
-      const file = photoInput.files[0];
-      if (!file) {
-        currentCompressedBase64 = "";
-        photoPreview.style.display = "none";
-        return;
-      }
+      const files = Array.from(photoInput.files || []);
+      currentCompressedPhotos = [];
+      photoPreviewList.innerHTML = "";
+
+      if (files.length === 0) return;
       forgotPhotoCb.checked = false;
-      currentCompressedBase64 = await compressImageToBase64(file);
-      photoPreview.src = currentCompressedBase64;
-      photoPreview.style.display = "block";
+
+      for (const file of files) {
+        const compressed = await compressImageToBase64(file);
+        currentCompressedPhotos.push(compressed);
+        const img = document.createElement("img");
+        img.src = compressed;
+        img.className = "photo-preview-thumb";
+        img.alt = "ตัวอย่างรูปภาพ";
+        photoPreviewList.appendChild(img);
+      }
     });
 
     forgotPhotoCb.addEventListener("change", () => {
       if (forgotPhotoCb.checked) {
         photoInput.value = "";
-        currentCompressedBase64 = "";
-        photoPreview.style.display = "none";
+        currentCompressedPhotos = [];
+        photoPreviewList.innerHTML = "";
       }
     });
 
     function renderQueue() {
       const listEl = document.getElementById("queuedList");
       const countEl = document.getElementById("queueCount");
-      const submitBtn = document.getElementById("submitAllBtn");
-
       countEl.textContent = queuedRooms.length;
-      submitBtn.disabled = queuedRooms.length === 0;
+      updateSubmitButtonState();
 
       if (queuedRooms.length === 0) {
         listEl.innerHTML = '<div class="muted">ยังไม่มีรายการห้องที่เพิ่มไว้</div>';
         return;
       }
 
-      listEl.innerHTML = queuedRooms.map((item, idx) => `
-        <div class="queued-item">
-          <div class="queued-meta">
-            <div><strong>${idx + 1}. ${item.building} | ห้อง ${item.room}</strong> ${item.grade && item.grade !== "-" ? `(${item.grade})` : ""}</div>
-            <div>ปัญหา: ${item.issuesSummary}</div>
-            <div>รูปภาพ: ${item.forgotPhoto ? "ลืมถ่ายรูป" : (item.hasPhoto ? "แนบรูปแล้ว" : "ไม่ได้แนบ")}</div>
+      listEl.innerHTML = queuedRooms.map((item, idx) => {
+        const photoCount = item.photos ? item.photos.length : 0;
+        const photoLabel = item.forgotPhoto
+          ? "ลืมถ่ายรูป"
+          : (photoCount > 0 ? `แนบรูปแล้ว (${photoCount} รูป)` : "ไม่ได้แนบ");
+        const previewBtn = photoCount > 0
+          ? `<button type="button" class="btn-preview" onclick="previewRoomPhotos(${idx})">Preview รูป</button>`
+          : "";
+
+        return `
+          <div class="queued-item">
+            <div class="queued-meta">
+              <div><strong>${idx + 1}. ${item.group} | ${item.building} | ห้อง ${item.room}</strong> ${item.grade && item.grade !== "-" ? `(${item.grade})` : ""}</div>
+              <div>ปัญหา: ${item.issuesSummary}</div>
+              <div>รูปภาพ: ${photoLabel}</div>
+            </div>
+            <div style="display:flex; align-items:center; flex-shrink:0;">
+              ${previewBtn}
+              <button type="button" class="btn-remove" onclick="removeQueuedItem(${idx})">ลบ</button>
+            </div>
           </div>
-          <button type="button" class="btn-remove" onclick="removeQueuedItem(${idx})">ลบ</button>
-        </div>
-      `).join("");
+        `;
+      }).join("");
     }
+
+    window.previewRoomPhotos = function(index) {
+      const item = queuedRooms[index];
+      if (!item || !item.photos || item.photos.length === 0) return;
+      document.getElementById("previewTitle").textContent =
+        `รูปของ ${item.building} ห้อง ${item.room} (${item.photos.length} รูป)`;
+      document.getElementById("previewImages").innerHTML = item.photos
+        .map(src => `<img src="${src}" alt="รูปหลักฐาน" />`)
+        .join("");
+      document.getElementById("previewModal").style.display = "block";
+    };
+
+    window.closePreviewModal = function() {
+      document.getElementById("previewModal").style.display = "none";
+    };
 
     window.removeQueuedItem = function(index) {
       queuedRooms.splice(index, 1);
+      document.getElementById("previewModal").style.display = "none";
       renderQueue();
     };
 
@@ -435,18 +561,18 @@
 
       photoInput.value = "";
       forgotPhotoCb.checked = false;
-      currentCompressedBase64 = "";
-      photoPreview.style.display = "none";
+      currentCompressedPhotos = [];
+      photoPreviewList.innerHTML = "";
       roomInput.focus();
     }
 
-    // เพิ่มห้องถัดไป โดยคง วันที่ และ อาคาร ไว้เหมือนเดิม
     document.getElementById("addRoomBtn").addEventListener("click", () => {
       const statusMsg = document.getElementById("statusMsg");
       statusMsg.textContent = "";
 
       const inspectDate = dateInput.value;
       const building = buildingSelect.value;
+      const group = groupSelect.value;
       const room = roomInput.value.trim();
 
       if (!inspectDate) {
@@ -455,6 +581,10 @@
       }
       if (!building) {
         alert("กรุณาเลือกอาคารก่อนครับ");
+        return;
+      }
+      if (!group) {
+        alert("กรุณาเลือกกลุ่มก่อนครับ");
         return;
       }
       if (!room) {
@@ -481,50 +611,72 @@
         return;
       }
 
-      if (!currentCompressedBase64 && !forgotPhotoCb.checked) {
-        alert("กรุณาแนบรูปถ่าย หรือติ๊กเลือก 'ลืมถ่ายรูป' ครับ");
+      if (currentCompressedPhotos.length === 0 && !forgotPhotoCb.checked) {
+        alert("กรุณาแนบรูปถ่ายอย่างน้อย 1 รูป หรือติ๊กเลือก 'ลืมถ่ายรูป' ครับ");
         return;
       }
 
       queuedRooms.push({
         date: inspectDate,
         building: building,
+        group: group,
         room: room,
         grade: resolveRoomLabel() || "-",
         issues: selectedIssues,
         issuesSummary: selectedIssues.join(", "),
         forgotPhoto: forgotPhotoCb.checked,
-        hasPhoto: Boolean(currentCompressedBase64),
-        photoBase64: currentCompressedBase64
+        photos: [...currentCompressedPhotos]
       });
 
       renderQueue();
       resetRoomFieldsOnly();
     });
 
-    // ส่งข้อมูลทั้งหมดแบบ Batch เดียวจบ
     document.getElementById("submitAllBtn").addEventListener("click", async () => {
       const signer = document.getElementById("signerName").value.trim();
       const statusMsg = document.getElementById("statusMsg");
       const submitBtn = document.getElementById("submitAllBtn");
 
-      if (queuedRooms.length === 0) return;
+      if (!dateInput.value || !buildingSelect.value || !groupSelect.value) {
+        alert("กรุณาเลือกวันที่ อาคาร และกลุ่มให้ครบก่อนครับ");
+        return;
+      }
+
+      if (queuedRooms.length === 0 && !allClearCb.checked) {
+        alert("กรุณาเพิ่มห้องที่มีปัญหา หรือติ๊กเลือก 'ทุกห้องเรียบร้อยหมด' ครับ");
+        return;
+      }
+
       if (!signer) {
         alert("กรุณาลงชื่อยืนยันผู้ตรวจก่อนส่งข้อมูลครับ");
         document.getElementById("signerName").focus();
         return;
       }
 
+      const itemsToSend = queuedRooms.length > 0
+        ? queuedRooms
+        : [{
+            date: dateInput.value,
+            building: buildingSelect.value,
+            group: groupSelect.value,
+            room: "-",
+            grade: "-",
+            issuesSummary: "ทุกห้องเรียบร้อยหมด",
+            forgotPhoto: false,
+            photos: []
+          }];
+
       submitBtn.disabled = true;
       statusMsg.style.color = "#0f766e";
-      statusMsg.textContent = `กำลังส่งข้อมูล ${queuedRooms.length} รายการ...`;
+      statusMsg.textContent = `กำลังส่งข้อมูล ${itemsToSend.length} รายการ...`;
 
       const payload = {
         action: "submit_batch_reports",
         uid: lineUid,
         lineDisplayName: lineDisplayName,
         signerName: signer,
-        items: queuedRooms
+        allClear: queuedRooms.length === 0 && allClearCb.checked,
+        items: itemsToSend
       };
 
       try {
@@ -537,6 +689,8 @@
 
         if (data.status === "success") {
           queuedRooms = [];
+          allClearCb.checked = false;
+          document.getElementById("previewModal").style.display = "none";
           renderQueue();
           resetRoomFieldsOnly();
           document.getElementById("signerName").value = "";
@@ -545,12 +699,12 @@
         } else {
           statusMsg.style.color = "#b91c1c";
           statusMsg.textContent = "ส่งข้อมูลไม่สำเร็จ: " + (data.message || "ลองใหม่อีกครั้ง");
-          submitBtn.disabled = false;
+          updateSubmitButtonState();
         }
       } catch (err) {
         statusMsg.style.color = "#b91c1c";
         statusMsg.textContent = "เกิดข้อผิดพลาดในการเชื่อมต่อระบบ";
-        submitBtn.disabled = false;
+        updateSubmitButtonState();
       }
     });
 
@@ -564,7 +718,7 @@
           updateGradeDisplay();
         }
       } catch (e) {
-        // ไม่ Error หากโหลดผังห้องไม่สำเร็จ ให้ใช้งานต่อได้ตามปกติ
+        // ใช้งานต่อได้ตามปกติแม้โหลดผังห้องไม่สำเร็จ
       }
     }
 
@@ -580,7 +734,7 @@
         lineUid = profile.userId || "";
         lineDisplayName = profile.displayName || "";
       } catch (e) {
-        // เปิดใช้งานนอกบริบท LIFF ได้
+        // เปิดทดสอบนอกบริบท LIFF ได้
       }
     }
 
