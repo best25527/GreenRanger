@@ -14,7 +14,6 @@
       --card: #ffffff;
       --primary: #15803d;
       --primary-dark: #166534;
-      --accent: #0f766e;
       --border: #e5e7eb;
       --text: #111827;
       --muted: #6b7280;
@@ -78,9 +77,7 @@
       font-weight: 700;
       cursor: pointer;
     }
-    .btn-save:hover {
-      background: #e2e8f0;
-    }
+    .btn-save:hover { background: #e2e8f0; }
     .btn-save-primary {
       background: #ecfdf5;
       border-color: #86efac;
@@ -304,6 +301,27 @@
       chartUnitWrapEl.style.display = isChart ? "block" : "none";
     }
 
+    function normalizeDateKey(val) {
+      if (!val) return "";
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, "0");
+        const d = String(val.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+      const str = String(val).trim();
+      const isoMatch = str.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) return isoMatch[1];
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) {
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, "0");
+        const d = String(parsed.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+      return str.slice(0, 10);
+    }
+
     function normalizeRoomKey(roomVal) {
       return String(roomVal || "").trim().toLowerCase();
     }
@@ -378,7 +396,7 @@
       const endDate = document.getElementById("endDate").value;
 
       return rawRows.filter(r => {
-        const rowDate = String(r[1] || "").slice(0, 10);
+        const rowDate = normalizeDateKey(r[1]);
         if (startDate && rowDate && rowDate < startDate) return false;
         if (endDate && rowDate && rowDate > endDate) return false;
         return true;
@@ -412,7 +430,7 @@
 
       const buildingMap = {};
       problemRows.forEach(r => {
-        const d = String(r[1] || "ไม่ระบุวันที่").slice(0, 10);
+        const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
         const b = String(r[2] || "ไม่ระบุอาคาร").trim();
         const rawRoom = String(r[4] || "-").trim();
         const roomKey = normalizeRoomKey(rawRoom);
@@ -436,7 +454,7 @@
         });
       });
 
-      const buildingNames = Object.keys(buildingMap).sort();
+      const buildingNames = Object.keys(buildingMap).sort((a, b) => a.localeCompare(b, "th"));
       let totalRoomsWithIssues = 0;
 
       const buildingSummaries = buildingNames.map(b => {
@@ -558,7 +576,7 @@
         const uniqueRoomsByBuilding = {};
 
         problemRows.forEach(r => {
-          const d = String(r[1] || "ไม่ระบุวันที่").slice(0, 10);
+          const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
           const b = String(r[2] || "ไม่ระบุอาคาร").trim();
           const roomKey = normalizeRoomKey(r[4]);
 
@@ -578,7 +596,7 @@
         const allBuildingsList = Array.from(new Set([
           ...Object.keys(uniqueRoomsByBuilding),
           ...Object.keys(buildingCountMap)
-        ])).sort();
+        ])).sort((a, b) => a.localeCompare(b, "th"));
 
         if (metricMode === "problem_rooms") {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับจำนวน 'ห้องที่มีปัญหา' ในแต่ละตึก (ห้องที่มีปัญหา = นับเป็น 1 ห้อง)";
@@ -636,7 +654,7 @@
         const uniqueRoomsByDate = {};
 
         buildingRows.forEach(r => {
-          const d = String(r[1] || "ไม่ระบุวันที่").slice(0, 10);
+          const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
           const rawRoom = String(r[4] || "-").trim();
           const roomKey = normalizeRoomKey(rawRoom);
           const gradeVal = String(r[5] || "").trim();
@@ -889,24 +907,43 @@
       }
     }
 
+    function triggerDownloadUrl(dataUrl, filename) {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     async function saveElementAsPng(elementId, filenamePrefix) {
       const targetEl = document.getElementById(elementId);
       if (!targetEl) return;
+      const stamp = new Date().toISOString().slice(0, 10);
+      const filename = `${filenamePrefix}_${stamp}.png`;
 
-      try {
-        const renderedCanvas = await html2canvas(targetEl, {
-          backgroundColor: "#ffffff",
-          scale: 2,
-          useCORS: true
-        });
-        const link = document.createElement("a");
-        const stamp = new Date().toISOString().slice(0, 10);
-        link.download = `${filenamePrefix}_${stamp}.png`;
-        link.href = renderedCanvas.toDataURL("image/png");
-        link.click();
-      } catch (err) {
-        alert("ไม่สามารถบันทึกรูปภาพได้ในเบราว์เซอร์นี้ ลองแคปหน้าจอแทนครับ");
+      if (typeof html2canvas === "function") {
+        try {
+          const renderedCanvas = await html2canvas(targetEl, {
+            backgroundColor: "#ffffff",
+            scale: 2,
+            useCORS: true,
+            logging: false
+          });
+          triggerDownloadUrl(renderedCanvas.toDataURL("image/png"), filename);
+          return;
+        } catch (err) {
+          // ตกไปใช้วิธีสำรองด้านล่าง
+        }
       }
+
+      const activeCanvas = document.getElementById("chartCanvas");
+      if ((displayModeEl.value === "pie" || displayModeEl.value === "bar") && activeCanvas) {
+        triggerDownloadUrl(activeCanvas.toDataURL("image/png"), filename);
+        return;
+      }
+
+      alert("ไม่สามารถบันทึกรูปภาพได้ในเบราว์เซอร์นี้ ลองแคปหน้าจอหรือกด Save ไฟล์ (CSV) แทนครับ");
     }
 
     function saveRowsAsCsv(rows, filenamePrefix) {
@@ -920,12 +957,9 @@
 
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
       const stamp = new Date().toISOString().slice(0, 10);
-      link.href = url;
-      link.download = `${filenamePrefix}_${stamp}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      triggerDownloadUrl(url, `${filenamePrefix}_${stamp}.csv`);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     displayModeEl.addEventListener("change", () => {
