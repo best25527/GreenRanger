@@ -175,6 +175,7 @@
               <option value="table">ตาราง (Table)</option>
               <option value="pie">แผนภูมิวงกลม (Pie Chart)</option>
               <option value="bar">แผนภูมิแท่ง (Bar Chart)</option>
+              <option value="summary">รายงานสรุปภาพรวม (Summary Report)</option>
             </select>
           </div>
 
@@ -243,13 +244,13 @@
         <div class="stats-grid" id="centralTendencyBox"></div>
       </div>
 
-      <!-- การ์ดตาราง / กราฟ ที่สนใจ พร้อมปุ่ม Save -->
+      <!-- การ์ดแสดงผลหลัก (ตาราง / กราฟ / รายงานสรุป) พร้อมปุ่ม Save -->
       <div class="card" id="mainViewCard">
         <div class="card-header-row">
           <h2 id="viewCardTitle" class="card-title">การแสดงผลข้อมูล</h2>
           <div class="btn-group-inline">
             <button type="button" class="btn-save btn-save-primary" id="saveViewImageBtn">Save รูปภาพ (PNG)</button>
-            <button type="button" class="btn-save" id="saveViewCsvBtn">Save ไฟล์ตาราง (CSV)</button>
+            <button type="button" class="btn-save" id="saveViewCsvBtn">Save ไฟล์ (CSV)</button>
           </div>
         </div>
 
@@ -257,18 +258,7 @@
         <div id="chartWrap" class="chart-wrap" style="display: none;">
           <canvas id="chartCanvas" style="max-height: 380px;"></canvas>
         </div>
-      </div>
-
-      <!-- การ์ดรายงานสรุปโดยรวมตลอดช่วงเวลาที่เลือก พร้อมปุ่ม Save -->
-      <div class="card" id="summaryReportCard">
-        <div class="card-header-row">
-          <h2 class="card-title">รายงานสรุปภาพรวมตลอดช่วงเวลาที่เลือก</h2>
-          <div class="btn-group-inline">
-            <button type="button" class="btn-save btn-save-primary" id="saveReportImageBtn">Save รายงานเป็นรูป (PNG)</button>
-            <button type="button" class="btn-save" id="saveReportCsvBtn">Save รายงานเป็นไฟล์ (CSV)</button>
-          </div>
-        </div>
-        <div id="summaryReportContent"></div>
+        <div id="summaryView" style="display: none;"></div>
       </div>
     </div>
   </div>
@@ -307,7 +297,7 @@
 
     function syncFilterControlsVisibility() {
       const isAllBuildings = buildingFilterEl.value === "ALL";
-      const isChart = displayModeEl.value !== "table";
+      const isChart = displayModeEl.value === "pie" || displayModeEl.value === "bar";
 
       allBuildingsMetricWrap.style.display = isAllBuildings ? "block" : "none";
       singleBuildingFocusWrap.style.display = isAllBuildings ? "none" : "block";
@@ -404,23 +394,22 @@
       return "ตลอดช่วงเวลาทั้งหมดในระบบ";
     }
 
-    // สร้างรายงานสรุปภาพรวมตลอดช่วงเวลาที่เลือก (รายตึกกี่ห้อง + เจาะลึกรายห้องเรียงอันดับ)
-    function renderOverallSummaryReport(dateRows) {
-      const problemRows = dateRows.filter(isProblemRow);
-      const reportContainer = document.getElementById("summaryReportContent");
-      const rangeLabel = getDateRangeLabel();
+    function buildOverallSummaryReport(dateRows, selectedBuilding) {
+      const problemRows = dateRows.filter(isProblemRow).filter(r => {
+        if (selectedBuilding === "ALL") return true;
+        return String(r[2] || "").trim() === selectedBuilding;
+      });
 
+      const rangeLabel = getDateRangeLabel();
       currentSummaryExportRows = [
         ["รายงานสรุปภาพรวมการตรวจอาคาร", rangeLabel],
         ["อาคาร", "จำนวนห้องที่มีปัญหาในตึก (ห้อง)", "อันดับในตึก", "เลขห้อง/ชื่อห้อง", "ชั้น/ประเภท", "ความถี่ที่มีปัญหา (ครั้ง/วัน)", "ปัญหาที่เคยพบ"]
       ];
 
       if (problemRows.length === 0) {
-        reportContainer.innerHTML = `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาครับ</div>`;
-        return;
+        return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาครับ</div>`;
       }
 
-      // โครงสร้างสรุปรายตึก: buildingMap[building] = { rooms: { roomKey: { room, grade, daySet, rawEventCount, issuesSet } } }
       const buildingMap = {};
       problemRows.forEach(r => {
         const d = String(r[1] || "ไม่ระบุวันที่").slice(0, 10);
@@ -440,7 +429,6 @@
           };
         }
 
-        // ถ้าวันนั้นมีหลายปัญหา นับเป็น 1 ครั้งต่อวันสำหรับห้องนั้น
         buildingMap[b].rooms[roomKey].daySet.add(d);
         tokens.forEach(t => {
           const label = t.category === "OTHER" && t.otherDetail ? `อื่นๆ (${t.otherDetail})` : t.rawLabel;
@@ -538,7 +526,7 @@
         </div>
       `).join("");
 
-      reportContainer.innerHTML = overviewTableHtml + drilldownHtml;
+      return overviewTableHtml + drilldownHtml;
     }
 
     function renderStatsAndView() {
@@ -549,11 +537,9 @@
       const selectedBuilding = buildingFilterEl.value;
       const dateRows = getDateFilteredRows();
 
-      // อัปเดตรายงานสรุปภาพรวมตลอดช่วงเวลาที่เลือกเสมอ
-      renderOverallSummaryReport(dateRows);
-
       const tableDiv = document.getElementById("tableView");
       const chartWrap = document.getElementById("chartWrap");
+      const summaryView = document.getElementById("summaryView");
       const canvas = document.getElementById("chartCanvas");
       const viewCardTitle = document.getElementById("viewCardTitle");
 
@@ -597,7 +583,9 @@
         if (metricMode === "problem_rooms") {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับจำนวน 'ห้องที่มีปัญหา' ในแต่ละตึก (ห้องที่มีปัญหา = นับเป็น 1 ห้อง)";
           mainMetricLabel = "จำนวนห้องที่มีปัญหา (ห้อง)";
-          viewCardTitle.textContent = "ภาพรวมทุกตึก: จำนวนห้องที่มีปัญหาในแต่ละตึก";
+          viewCardTitle.textContent = mode === "summary"
+            ? "รายงานสรุปภาพรวมทุกตึก"
+            : "ภาพรวมทุกตึก: จำนวนห้องที่มีปัญหาในแต่ละตึก";
 
           labels = allBuildingsList;
           values = allBuildingsList.map(b => (uniqueRoomsByBuilding[b] ? uniqueRoomsByBuilding[b].size : 0));
@@ -616,7 +604,9 @@
         } else {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แสดงความถี่ / รายการปัญหาที่บันทึกในแต่ละตึก";
           mainMetricLabel = "จำนวนรายการ/ความถี่ปัญหา";
-          viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่ปัญหาในแต่ละตึก";
+          viewCardTitle.textContent = mode === "summary"
+            ? "รายงานสรุปภาพรวมทุกตึก"
+            : "ภาพรวมทุกตึก: ความถี่ปัญหาในแต่ละตึก";
 
           labels = allBuildingsList;
           values = allBuildingsList.map(b => buildingCountMap[b] || 0);
@@ -634,7 +624,6 @@
           ];
         }
       } else {
-        // พิจารณารายตึก (เลือกอาคารเฉพาะ)
         const focusKey = issueFocusFilterEl.value;
         const focusThai = FOCUS_LABELS[focusKey] || "อื่นๆ";
 
@@ -670,8 +659,6 @@
             };
           }
 
-          // ถ้าดูภาพรวมตึก: วันนั้นมี 3 ปัญหาก็นับเป็น 1 ครั้ง (นับตามวันที่พบปัญหาของห้องนั้น)
-          // ถ้าโฟกัสปัญหาเฉพาะ: นับตามจำนวนครั้งที่พบปัญหานั้น
           roomStats[roomKey].countedDays.add(d);
           roomStats[roomKey].specificIssueFreq += matchingTokens.length;
 
@@ -697,15 +684,21 @@
         if (focusKey === "ALL_OVERVIEW") {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — วันนั้นมีหลายปัญหาก็นับเป็น 1 ครั้ง และเรียงอันดับห้องที่พบปัญหา`;
           mainMetricLabel = "ความถี่ที่พบปัญหา (ครั้ง)";
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
+          viewCardTitle.textContent = mode === "summary"
+            ? `รายงานสรุปภาพรวม: ${selectedBuilding}`
+            : `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
         } else if (focusKey === "OTHER") {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "อื่นๆ" (กราฟรวมเป็น "อื่นๆ" และตารางระบุรายละเอียดด้วยว่าคืออะไร)`;
           mainMetricLabel = "อื่นๆ";
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "อื่นๆ"`;
+          viewCardTitle.textContent = mode === "summary"
+            ? `รายงานสรุปภาพรวม: ${selectedBuilding}`
+            : `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "อื่นๆ"`;
         } else {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "${focusThai}" แสดงความถี่ของห้องที่พบปัญหานี้`;
           mainMetricLabel = `ความถี่ "${focusThai}" (ครั้ง)`;
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusThai}"`;
+          viewCardTitle.textContent = mode === "summary"
+            ? `รายงานสรุปภาพรวม: ${selectedBuilding}`
+            : `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusThai}"`;
         }
 
         labels = sortedRooms.map(item => `ห้อง ${item.room}`);
@@ -765,6 +758,7 @@
 
       if (mode === "table") {
         chartWrap.style.display = "none";
+        summaryView.style.display = "none";
         tableDiv.style.display = "block";
 
         if (rowsForTable.length === 0) {
@@ -828,8 +822,14 @@
             </table>
           `;
         }
+      } else if (mode === "summary") {
+        tableDiv.style.display = "none";
+        chartWrap.style.display = "none";
+        summaryView.style.display = "block";
+        summaryView.innerHTML = buildOverallSummaryReport(dateRows, selectedBuilding);
       } else {
         tableDiv.style.display = "none";
+        summaryView.style.display = "none";
         chartWrap.style.display = "block";
 
         const chartDatasetLabel = (selectedBuilding !== "ALL" && issueFocusFilterEl.value === "OTHER")
@@ -889,12 +889,10 @@
       }
     }
 
-    // ฟังก์ชันดาวน์โหลดรูปภาพ PNG จาก Element หรือ Canvas
     async function saveElementAsPng(elementId, filenamePrefix) {
       const targetEl = document.getElementById(elementId);
       if (!targetEl) return;
 
-      // หากอยู่ในโหมดกราฟและกดเซฟการ์ดหลัก สามารถเซฟรูป canvas ตรงๆ หรือทั้งการ์ดได้
       try {
         const renderedCanvas = await html2canvas(targetEl, {
           backgroundColor: "#ffffff",
@@ -911,7 +909,6 @@
       }
     }
 
-    // ฟังก์ชันดาวน์โหลดไฟล์ CSV (รองรับภาษาไทยใน Excel ด้วย UTF-8 BOM)
     function saveRowsAsCsv(rows, filenamePrefix) {
       if (!rows || rows.length <= 1) {
         alert("ยังไม่มีข้อมูลสำหรับบันทึกไฟล์ครับ");
@@ -945,16 +942,15 @@
     document.getElementById("applyFilterBtn").addEventListener("click", renderStatsAndView);
 
     document.getElementById("saveViewImageBtn").addEventListener("click", () => {
-      saveElementAsPng("mainViewCard", "สถิติการตรวจอาคาร");
+      const prefix = displayModeEl.value === "summary" ? "รายงานสรุปการตรวจอาคาร" : "สถิติการตรวจอาคาร";
+      saveElementAsPng("mainViewCard", prefix);
     });
     document.getElementById("saveViewCsvBtn").addEventListener("click", () => {
-      saveRowsAsCsv(currentViewExportRows, "สถิติการตรวจอาคาร");
-    });
-    document.getElementById("saveReportImageBtn").addEventListener("click", () => {
-      saveElementAsPng("summaryReportCard", "รายงานสรุปการตรวจอาคาร");
-    });
-    document.getElementById("saveReportCsvBtn").addEventListener("click", () => {
-      saveRowsAsCsv(currentSummaryExportRows, "รายงานสรุปการตรวจอาคาร");
+      const isSummary = displayModeEl.value === "summary";
+      saveRowsAsCsv(
+        isSummary ? currentSummaryExportRows : currentViewExportRows,
+        isSummary ? "รายงานสรุปการตรวจอาคาร" : "สถิติการตรวจอาคาร"
+      );
     });
 
     async function initAdminStatus() {
