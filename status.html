@@ -159,7 +159,6 @@
     </div>
 
     <div id="adminDashboard" style="display: none;">
-      <!-- การ์ดตัวกรอง -->
       <div class="card">
         <div class="card-header-row">
           <h2 class="card-title">ตัวกรองและรูปแบบการแสดงสถิติ (Admin)</h2>
@@ -196,7 +195,6 @@
             </select>
           </div>
 
-          <!-- แสดงเมื่อเลือก "ภาพรวมทุกตึก" -->
           <div id="allBuildingsMetricWrap">
             <label for="allBuildingsMetric">โหมดภาพรวมทุกตึก</label>
             <select id="allBuildingsMetric">
@@ -205,7 +203,6 @@
             </select>
           </div>
 
-          <!-- แสดงเมื่อเลือก "พิจารณารายตึก" -->
           <div id="singleBuildingFocusWrap" style="display: none;">
             <label for="issueFocusFilter">โฟกัสปัญหา</label>
             <select id="issueFocusFilter">
@@ -233,7 +230,6 @@
         <button type="button" class="btn-main" id="applyFilterBtn">อัปเดตสถิติ</button>
       </div>
 
-      <!-- การ์ดยอดรวมสรุป -->
       <div class="card">
         <div class="card-header-row">
           <h2 class="card-title">สรุปจำนวนตามเงื่อนไข</h2>
@@ -241,7 +237,6 @@
         <div class="stats-grid" id="overviewSummaryBox"></div>
       </div>
 
-      <!-- การ์ดแสดงผลหลัก (ตาราง / กราฟ / รายงานสรุป) พร้อมปุ่ม Save -->
       <div class="card" id="mainViewCard">
         <div class="card-header-row">
           <h2 id="viewCardTitle" class="card-title">การแสดงผลข้อมูล</h2>
@@ -343,24 +338,12 @@
         .map(s => s.trim())
         .filter(Boolean)
         .map(token => {
-          if (token.includes("ไฟ")) {
-            return { category: "LIGHT", rawLabel: token, otherDetail: "" };
-          }
-          if (token.includes("แอร์") || token.includes("เครื่องปรับอากาศ")) {
-            return { category: "AC", rawLabel: token, otherDetail: "" };
-          }
-          if (token.includes("พัดลม")) {
-            return { category: "FAN", rawLabel: token, otherDetail: "" };
-          }
-          if (token.includes("ทีวี") || token.includes("โปรเจคเตอร์")) {
-            return { category: "TV", rawLabel: token, otherDetail: "" };
-          }
+          if (token.includes("ไฟ")) return { category: "LIGHT", rawLabel: token, otherDetail: "" };
+          if (token.includes("แอร์") || token.includes("เครื่องปรับอากาศ")) return { category: "AC", rawLabel: token, otherDetail: "" };
+          if (token.includes("พัดลม")) return { category: "FAN", rawLabel: token, otherDetail: "" };
+          if (token.includes("ทีวี") || token.includes("โปรเจคเตอร์")) return { category: "TV", rawLabel: token, otherDetail: "" };
           const detail = token.replace(/^อื่นๆ\s*:?\s*/i, "").trim();
-          return {
-            category: "OTHER",
-            rawLabel: "อื่นๆ",
-            otherDetail: detail || token
-          };
+          return { category: "OTHER", rawLabel: "อื่นๆ", otherDetail: detail || token };
         });
     }
 
@@ -397,8 +380,8 @@
         ["อาคาร", "จำนวนห้องที่มีปัญหาในตึก (ห้อง)", "อันดับในตึก", "เลขห้อง/ชื่อห้อง", "ชั้น/ประเภท", "ความถี่ที่มีปัญหา (ครั้ง/วัน)", "ปัญหาที่เคยพบ"]
       ];
 
-      if (problemRows.length === 0) {
-        return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาครับ</div>`;
+      if (!problemRows.length) {
+        return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาในช่วงเวลานี้ครับ (ลองล้างช่องวันที่หรือกดอัปเดตสถิติ)</div>`;
       }
 
       const buildingMap = {};
@@ -427,7 +410,7 @@
         });
       });
 
-      const buildingNames = Object.keys(buildingMap).sort((a, b) => a.localeCompare(b, "th"));
+      const buildingNames = Object.keys(buildingMap).sort();
       let totalRoomsWithIssues = 0;
 
       const buildingSummaries = buildingNames.map(b => {
@@ -439,7 +422,7 @@
             issues: Array.from(item.issuesSet).join(", ")
           }))
           .filter(item => item.freq > 0)
-          .sort((a, bItem) => bItem.freq - aItem.freq || a.room.localeCompare(bItem.room, "th"));
+          .sort((a, bItem) => bItem.freq - aItem.freq);
 
         totalRoomsWithIssues += roomList.length;
 
@@ -559,7 +542,7 @@
         const allBuildingsList = Array.from(new Set([
           ...Object.keys(uniqueRoomsByBuilding),
           ...Object.keys(buildingCountMap)
-        ])).sort((a, b) => a.localeCompare(b, "th"));
+        ])).sort();
 
         if (metricMode === "problem_rooms") {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับจำนวน 'ห้องที่มีปัญหา' ในแต่ละตึก (ห้องที่มีปัญหา = นับเป็น 1 ห้อง)";
@@ -624,7 +607,7 @@
             ? tokens
             : tokens.filter(t => t.category === focusKey);
 
-          if (matchingTokens.length === 0) return;
+          if (!matchingTokens.length) return;
 
           if (!roomStats[roomKey]) {
             roomStats[roomKey] = {
@@ -654,7 +637,7 @@
             finalFrequency: focusKey === "ALL_OVERVIEW" ? item.countedDays.size : item.specificIssueFreq
           }))
           .filter(item => item.finalFrequency > 0)
-          .sort((a, b) => b.finalFrequency - a.finalFrequency || a.room.localeCompare(b.room, "th"));
+          .sort((a, b) => b.finalFrequency - a.finalFrequency);
 
         if (focusKey === "ALL_OVERVIEW") {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — วันนั้นมีหลายปัญหาก็นับเป็น 1 ครั้ง และเรียงอันดับห้องที่พบปัญหา`;
@@ -727,7 +710,7 @@
         summaryView.style.display = "none";
         tableDiv.style.display = "block";
 
-        if (rowsForTable.length === 0) {
+        if (!rowsForTable.length) {
           tableDiv.innerHTML = '<div class="muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>';
           return;
         }
@@ -856,12 +839,16 @@
     }
 
     function triggerDownloadUrl(dataUrl, filename) {
-      const link = document.createElement("a");
-      link.download = filename;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const link = document.createElement("a");
+        link.download = filename;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {
+        window.open(dataUrl, "_blank");
+      }
     }
 
     async function saveElementAsPng(elementId, filenamePrefix) {
@@ -869,6 +856,12 @@
       if (!targetEl) return;
       const stamp = new Date().toISOString().slice(0, 10);
       const filename = `${filenamePrefix}_${stamp}.png`;
+
+      const activeCanvas = document.getElementById("chartCanvas");
+      if ((displayModeEl.value === "pie" || displayModeEl.value === "bar") && activeCanvas) {
+        triggerDownloadUrl(activeCanvas.toDataURL("image/png"), filename);
+        return;
+      }
 
       if (typeof html2canvas === "function") {
         try {
@@ -881,17 +874,12 @@
           triggerDownloadUrl(renderedCanvas.toDataURL("image/png"), filename);
           return;
         } catch (err) {
-          // ตกไปใช้วิธีสำรองด้านล่าง
+          alert("เบราว์เซอร์ภายในบล็อกการบันทึกรูปภาพ ลองเปิดในเบราว์เซอร์ภายนอกหรือกด Save ไฟล์ (CSV) แทนครับ");
+          return;
         }
       }
 
-      const activeCanvas = document.getElementById("chartCanvas");
-      if ((displayModeEl.value === "pie" || displayModeEl.value === "bar") && activeCanvas) {
-        triggerDownloadUrl(activeCanvas.toDataURL("image/png"), filename);
-        return;
-      }
-
-      alert("ไม่สามารถบันทึกรูปภาพได้ในเบราว์เซอร์นี้ ลองแคปหน้าจอหรือกด Save ไฟล์ (CSV) แทนครับ");
+      alert("ไม่พบไลบรารีบันทึกรูปภาพ ลองกด Save ไฟล์ (CSV) แทนครับ");
     }
 
     function saveRowsAsCsv(rows, filenamePrefix) {
@@ -907,7 +895,7 @@
       const url = URL.createObjectURL(blob);
       const stamp = new Date().toISOString().slice(0, 10);
       triggerDownloadUrl(url, `${filenamePrefix}_${stamp}.csv`);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
     }
 
     displayModeEl.addEventListener("change", () => {
