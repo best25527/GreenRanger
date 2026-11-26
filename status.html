@@ -7,7 +7,6 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     :root {
       --bg: #f3f6f4;
@@ -26,7 +25,7 @@
       background: var(--bg);
       color: var(--text);
     }
-    .container { max-width: 820px; margin: 0 auto 40px; }
+    .container { max-width: 860px; margin: 0 auto 40px; }
     .card {
       background: var(--card);
       border-radius: 14px;
@@ -62,27 +61,6 @@
       margin-top: 12px;
       cursor: pointer;
     }
-    .btn-group-inline {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .btn-save {
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      color: #0f172a;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .btn-save:hover { background: #e2e8f0; }
-    .btn-save-primary {
-      background: #ecfdf5;
-      border-color: #86efac;
-      color: #166534;
-    }
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -111,44 +89,23 @@
       font-size: 13px;
       font-weight: 600;
     }
-    .report-section-box {
-      border: 1px solid #d1fae5;
-      background: #f8fafc;
-      border-radius: 10px;
-      padding: 12px;
-      margin-top: 10px;
+    .charts-5-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
     }
-    .report-building-block {
+    .sub-chart-card {
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-top: 10px;
+      border-radius: 12px;
+      padding: 12px;
     }
-    .report-building-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: 700;
+    .sub-chart-title {
       font-size: 14px;
-      color: var(--primary-dark);
-      border-bottom: 1px solid #f1f5f9;
-      padding-bottom: 6px;
-      margin-bottom: 6px;
-    }
-    .badge-pill {
-      background: #dcfce7;
-      color: #166534;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 12px;
       font-weight: 700;
-    }
-    .chart-wrap {
-      position: relative;
-      background: #fff;
-      padding: 10px;
-      border-radius: 10px;
+      color: var(--primary-dark);
+      margin: 0 0 8px 0;
     }
   </style>
 </head>
@@ -171,7 +128,6 @@
               <option value="table">ตาราง (Table)</option>
               <option value="pie">แผนภูมิวงกลม (Pie Chart)</option>
               <option value="bar">แผนภูมิแท่ง (Bar Chart)</option>
-              <option value="summary">รายงานสรุปภาพรวม (Summary Report)</option>
             </select>
           </div>
 
@@ -183,7 +139,7 @@
             </select>
           </div>
 
-          <div id="buildingFilterWrap">
+          <div>
             <label for="buildingFilter">เลือกมุมมอง / อาคาร</label>
             <select id="buildingFilter">
               <option value="ALL">ภาพรวมทุกตึก</option>
@@ -199,7 +155,7 @@
             <label for="allBuildingsMetric">โหมดภาพรวมทุกตึก</label>
             <select id="allBuildingsMetric">
               <option value="problem_rooms">จำนวนห้องที่มีปัญหาในแต่ละตึก (นับห้อง = 1)</option>
-              <option value="raw_frequency">ความถี่ / รายการปัญหาในแต่ละตึก (แบบเดิม)</option>
+              <option value="raw_frequency">ความถี่ / รายการปัญหาในแต่ละตึก (แยก 5 กราฟตามปัญหา)</option>
             </select>
           </div>
 
@@ -240,17 +196,13 @@
       <div class="card" id="mainViewCard">
         <div class="card-header-row">
           <h2 id="viewCardTitle" class="card-title">การแสดงผลข้อมูล</h2>
-          <div class="btn-group-inline">
-            <button type="button" class="btn-save btn-save-primary" id="saveViewImageBtn">Save รูปภาพ (PNG)</button>
-            <button type="button" class="btn-save" id="saveViewCsvBtn">Save ไฟล์ (CSV)</button>
-          </div>
         </div>
 
         <div id="tableView"></div>
-        <div id="chartWrap" class="chart-wrap" style="display: none;">
+        <div id="singleChartWrap" style="display: none;">
           <canvas id="chartCanvas" style="max-height: 380px;"></canvas>
         </div>
-        <div id="summaryView" style="display: none;"></div>
+        <div id="fiveChartsWrap" class="charts-5-grid" style="display: none;"></div>
       </div>
     </div>
   </div>
@@ -272,15 +224,25 @@
       OTHER: "อื่นๆ"
     };
 
+    const ISSUE_CATEGORIES = [
+      { key: "LIGHT", label: "ไฟ" },
+      { key: "AC", label: "แอร์" },
+      { key: "FAN", label: "พัดลม" },
+      { key: "TV", label: "ทีวี" },
+      { key: "OTHER", label: "อื่นๆ" }
+    ];
+
+    const PALETTE = [
+      "#16a34a", "#0284c7", "#eab308", "#dc2626", "#9333ea",
+      "#0d9488", "#ea580c", "#4f46e5", "#db2777", "#65a30d"
+    ];
+
     let rawRows = [];
-    let chartInstance = null;
-    let currentViewExportRows = [];
-    let currentSummaryExportRows = [];
+    let chartInstances = [];
 
     const displayModeEl = document.getElementById("displayMode");
     const chartUnitWrapEl = document.getElementById("chartUnitWrap");
     const chartUnitModeEl = document.getElementById("chartUnitMode");
-    const buildingFilterWrapEl = document.getElementById("buildingFilterWrap");
     const buildingFilterEl = document.getElementById("buildingFilter");
     const allBuildingsMetricWrap = document.getElementById("allBuildingsMetricWrap");
     const allBuildingsMetricEl = document.getElementById("allBuildingsMetric");
@@ -288,15 +250,20 @@
     const issueFocusFilterEl = document.getElementById("issueFocusFilter");
     const contextHintEl = document.getElementById("contextHint");
 
+    function destroyAllCharts() {
+      chartInstances.forEach(inst => {
+        try { inst.destroy(); } catch (e) {}
+      });
+      chartInstances = [];
+    }
+
     function syncFilterControlsVisibility() {
-      const isSummary = displayModeEl.value === "summary";
       const isAllBuildings = buildingFilterEl.value === "ALL";
       const isChart = displayModeEl.value === "pie" || displayModeEl.value === "bar";
 
-      buildingFilterWrapEl.style.display = isSummary ? "none" : "block";
-      allBuildingsMetricWrap.style.display = (!isSummary && isAllBuildings) ? "block" : "none";
-      singleBuildingFocusWrap.style.display = (!isSummary && !isAllBuildings) ? "block" : "none";
-      chartUnitWrapEl.style.display = (!isSummary && isChart) ? "block" : "none";
+      allBuildingsMetricWrap.style.display = isAllBuildings ? "block" : "none";
+      singleBuildingFocusWrap.style.display = isAllBuildings ? "none" : "block";
+      chartUnitWrapEl.style.display = isChart ? "block" : "none";
     }
 
     function normalizeDateKey(val) {
@@ -371,177 +338,203 @@
       return "ตลอดช่วงเวลาทั้งหมดในระบบ";
     }
 
-    function buildOverallSummaryReport(dateRows) {
-  try {
-    const problemRows = (dateRows || []).filter(isProblemRow);
-    const rangeLabel = getDateRangeLabel();
-
-    currentSummaryExportRows = [
-      ["รายงานสรุปภาพรวมการตรวจอาคาร (ทุกตึก)", rangeLabel],
-      ["อาคาร", "จำนวนห้องที่มีปัญหาในตึก (ห้อง)", "อันดับในตึก", "เลขห้อง/ชื่อห้อง", "ชั้น/ประเภท", "ความถี่ที่มีปัญหา (ครั้ง/วัน)", "ปัญหาที่เคยพบ"]
-    ];
-
-    if (!problemRows.length) {
-      return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาในทุกตึกครับ</div>`;
+    function createChartConfig(type, labels, values, datasetLabel, chartUnit) {
+      const sumValues = values.reduce((a, b) => a + b, 0);
+      return {
+        type: type,
+        data: {
+          labels: labels.length ? labels : ["ไม่มีข้อมูล"],
+          datasets: [{
+            label: datasetLabel,
+            data: values.length ? values : [0],
+            backgroundColor: PALETTE
+          }]
+        },
+        options: {
+          responsive: true,
+          layout: {
+            padding: { top: 24, right: 14, left: 14, bottom: 8 }
+          },
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const val = Number(ctx.raw || 0);
+                  const pct = sumValues > 0 ? ((val / sumValues) * 100).toFixed(1) : "0.0";
+                  return `${ctx.label}: ${val} (${pct}%)`;
+                }
+              }
+            },
+            datalabels: {
+              color: type === "pie" ? "#ffffff" : "#111827",
+              font: { weight: "bold", size: 11 },
+              anchor: type === "pie" ? "center" : "end",
+              align: type === "pie" ? "center" : "top",
+              formatter: function(value) {
+                const val = Number(value || 0);
+                if (val === 0) return "0";
+                if (chartUnit === "percent") {
+                  const pct = sumValues > 0 ? ((val / sumValues) * 100).toFixed(1) : "0.0";
+                  return `${pct}%`;
+                }
+                return `${val}`;
+              }
+            }
+          }
+        }
+      };
     }
 
-    const buildingMap = {};
-    problemRows.forEach(r => {
-      const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
-      const b = String(r[2] || "ไม่ระบุอาคาร").trim();
-      const rawRoom = String(r[4] || "-").trim();
-      const roomKey = normalizeRoomKey(rawRoom);
-      const gradeVal = String(r[5] || "").trim();
-      const tokens = parseIssueTokens(r[6]);
+    function renderFiveIssueCharts(buildingsList, buildingIssueCounts, chartType, chartUnit) {
+      const fiveWrap = document.getElementById("fiveChartsWrap");
+      fiveWrap.innerHTML = "";
 
-      if (!buildingMap[b]) buildingMap[b] = { rooms: {} };
-      if (!buildingMap[b].rooms[roomKey]) {
-        buildingMap[b].rooms[roomKey] = {
-          room: rawRoom,
-          grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
-          daySet: new Set(),
-          issuesSet: new Set()
-        };
-      }
+      ISSUE_CATEGORIES.forEach(cat => {
+        const card = document.createElement("div");
+        card.className = "sub-chart-card";
 
-      buildingMap[b].rooms[roomKey].daySet.add(d);
-      tokens.forEach(t => {
-        const label = t.category === "OTHER" && t.otherDetail ? `อื่นๆ (${t.otherDetail})` : t.rawLabel;
-        buildingMap[b].rooms[roomKey].issuesSet.add(label);
+        const titleEl = document.createElement("h3");
+        titleEl.className = "sub-chart-title";
+        const catTotal = buildingsList.reduce((acc, b) => acc + ((buildingIssueCounts[b] && buildingIssueCounts[b][cat.key]) || 0), 0);
+        titleEl.textContent = `ปัญหา: ${cat.label} (รวม ${catTotal})`;
+
+        const canvasEl = document.createElement("canvas");
+        canvasEl.style.maxHeight = "250px";
+
+        card.appendChild(titleEl);
+        card.appendChild(canvasEl);
+        fiveWrap.appendChild(card);
+
+        const catValues = buildingsList.map(b => (buildingIssueCounts[b] && buildingIssueCounts[b][cat.key]) || 0);
+        const inst = new Chart(
+          canvasEl.getContext("2d"),
+          createChartConfig(chartType, buildingsList, catValues, `ปัญหา${cat.label}`, chartUnit)
+        );
+        chartInstances.push(inst);
       });
-    });
-
-    const buildingNames = Object.keys(buildingMap).sort((a, b) => String(a).localeCompare(String(b), "th"));
-    let totalRoomsWithIssues = 0;
-
-    const buildingSummaries = buildingNames.map(b => {
-      const roomList = Object.values(buildingMap[b].rooms)
-        .map(item => ({
-          room: String(item.room || "-"),
-          grade: String(item.grade || "-"),
-          freq: item.daySet.size,
-          issues: Array.from(item.issuesSet).join(", ")
-        }))
-        .filter(item => item.freq > 0)
-        .sort((a, bItem) => (bItem.freq - a.freq) || String(a.room).localeCompare(String(bItem.room), "th"));
-
-      totalRoomsWithIssues += roomList.length;
-
-      roomList.forEach((rm, idx) => {
-        currentSummaryExportRows.push([
-          b,
-          roomList.length,
-          idx + 1,
-          rm.room,
-          rm.grade,
-          rm.freq,
-          rm.issues
-        ]);
-      });
-
-      return {
-        building: b,
-        roomCount: roomList.length,
-        rooms: roomList
-      };
-    });
-
-    const overviewTableHtml = `
-      <div class="report-section-box">
-        <div style="font-size: 13px; font-weight: 700; color: #065f46; margin-bottom: 6px;">
-          สรุปภาพรวมทุกตึก (${rangeLabel}) — พบปัญหาทั้งหมด ${totalRoomsWithIssues} ห้อง จาก ${buildingSummaries.length} อาคาร
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>อาคาร</th>
-              <th>จำนวนห้องที่พบปัญหา (ห้อง)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${buildingSummaries.map(bs => `
-              <tr>
-                <td><strong>${bs.building}</strong></td>
-                <td><strong>${bs.roomCount}</strong> ห้อง</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    const drilldownHtml = buildingSummaries.map(bs => `
-      <div class="report-building-block">
-        <div class="report-building-header">
-          <span>${bs.building}</span>
-          <span class="badge-pill">พบปัญหา ${bs.roomCount} ห้อง</span>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 56px;">อันดับ</th>
-              <th>ห้อง</th>
-              <th>ชั้น/ประเภท</th>
-              <th style="width: 120px;">มีปัญหา (ครั้ง)</th>
-              <th>ปัญหาที่พบ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${bs.rooms.map((rm, idx) => `
-              <tr>
-                <td>${idx + 1}</td>
-                <td><strong>${rm.room}</strong></td>
-                <td>${rm.grade}</td>
-                <td><strong>${rm.freq}</strong> ครั้ง</td>
-                <td>${rm.issues}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `).join("");
-
-    return overviewTableHtml + drilldownHtml;
-  } catch (err) {
-    return `<div class="muted" style="color:#991b1b;">สร้างรายงานสรุปไม่สำเร็จ: ${err.message}</div>`;
-  }
-}
+    }
 
     function renderStatsAndView() {
       syncFilterControlsVisibility();
+      destroyAllCharts();
 
       const mode = displayModeEl.value;
       const chartUnit = chartUnitModeEl.value;
-      const selectedBuilding = mode === "summary" ? "ALL" : buildingFilterEl.value;
+      const selectedBuilding = buildingFilterEl.value;
       const dateRows = getDateFilteredRows();
 
       const tableDiv = document.getElementById("tableView");
-      const chartWrap = document.getElementById("chartWrap");
-      const summaryView = document.getElementById("summaryView");
-      const canvas = document.getElementById("chartCanvas");
+      const singleChartWrap = document.getElementById("singleChartWrap");
+      const fiveChartsWrap = document.getElementById("fiveChartsWrap");
+      const singleCanvas = document.getElementById("chartCanvas");
       const viewCardTitle = document.getElementById("viewCardTitle");
 
-      let labels = [];
-      let values = [];
-      let mainMetricLabel = "";
-      let rowsForTable = [];
+      if (selectedBuilding === "ALL") {
+        const metricMode = allBuildingsMetricEl.value;
+        const problemRows = dateRows.filter(isProblemRow);
 
-      if (mode === "summary") {
-        const allProblemRows = dateRows.filter(isProblemRow);
-        const allBuildingsSet = new Set(allProblemRows.map(r => String(r[2] || "ไม่ระบุอาคาร").trim()));
-        const uniqueRoomKeysSet = new Set(allProblemRows.map(r => `${String(r[2] || "ไม่ระบุอาคาร").trim()}__${normalizeRoomKey(r[4])}`));
+        const uniqueRoomsByBuilding = {};
+        const buildingIssueCounts = {};
 
-        contextHintEl.textContent = "โหมด: รายงานสรุปภาพรวม — แสดงข้อมูลทุกตึกอัตโนมัติ (เลือกได้เฉพาะช่วงวันที่)";
-        viewCardTitle.textContent = "รายงานสรุปภาพรวมทุกตึก";
+        problemRows.forEach(r => {
+          const b = String(r[2] || "ไม่ระบุอาคาร").trim();
+          const roomKey = normalizeRoomKey(r[4]);
+          const tokens = parseIssueTokens(r[6]);
+
+          if (!uniqueRoomsByBuilding[b]) uniqueRoomsByBuilding[b] = new Set();
+          uniqueRoomsByBuilding[b].add(roomKey);
+
+          if (!buildingIssueCounts[b]) {
+            buildingIssueCounts[b] = { LIGHT: 0, AC: 0, FAN: 0, TV: 0, OTHER: 0 };
+          }
+          tokens.forEach(t => {
+            if (buildingIssueCounts[b][t.category] !== undefined) {
+              buildingIssueCounts[b][t.category] += 1;
+            }
+          });
+        });
+
+        const allBuildingsList = Array.from(new Set([
+          ...Object.keys(uniqueRoomsByBuilding),
+          ...Object.keys(buildingIssueCounts)
+        ])).sort((a, b) => a.localeCompare(b, "th"));
+
+        if (metricMode === "problem_rooms") {
+          const values = allBuildingsList.map(b => (uniqueRoomsByBuilding[b] ? uniqueRoomsByBuilding[b].size : 0));
+          const totalRooms = values.reduce((a, b) => a + b, 0);
+
+          contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับจำนวน 'ห้องที่มีปัญหา' ในแต่ละตึก (ห้องที่มีปัญหา = นับเป็น 1 ห้อง)";
+          viewCardTitle.textContent = "ภาพรวมทุกตึก: จำนวนห้องที่มีปัญหาในแต่ละตึก";
+
+          document.getElementById("overviewSummaryBox").innerHTML = `
+            <div class="stat-box">
+              <div class="stat-label">จำนวนห้องที่มีปัญหา (ห้อง)</div>
+              <div class="stat-val">${totalRooms}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">ช่วงเวลาที่แสดง</div>
+              <div class="stat-val" style="font-size:14px;">${getDateRangeLabel()}</div>
+            </div>
+          `;
+
+          if (mode === "table") {
+            singleChartWrap.style.display = "none";
+            fiveChartsWrap.style.display = "none";
+            tableDiv.style.display = "block";
+
+            if (!allBuildingsList.length) {
+              tableDiv.innerHTML = '<div class="muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>';
+              return;
+            }
+
+            tableDiv.innerHTML = `
+              <table>
+                <thead>
+                  <tr>
+                    <th>ลำดับ</th>
+                    <th>อาคาร</th>
+                    <th>จำนวนห้องที่มีปัญหา (ห้อง)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${allBuildingsList.map((b, i) => `
+                    <tr>
+                      <td>${i + 1}</td>
+                      <td>${b}</td>
+                      <td><strong>${values[i]}</strong></td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            `;
+          } else {
+            tableDiv.style.display = "none";
+            fiveChartsWrap.style.display = "none";
+            singleChartWrap.style.display = "block";
+
+            const inst = new Chart(
+              singleCanvas.getContext("2d"),
+              createChartConfig(mode, allBuildingsList, values, "จำนวนห้องที่มีปัญหา (ห้อง)", chartUnit)
+            );
+            chartInstances.push(inst);
+          }
+          return;
+        }
+
+        // โหมดความถี่ / รายการปัญหาในแต่ละตึก -> แยกเป็น 5 กราฟตามปัญหา
+        const totalFiveIssues = allBuildingsList.reduce((sum, b) => {
+          const c = buildingIssueCounts[b] || { LIGHT: 0, AC: 0, FAN: 0, TV: 0, OTHER: 0 };
+          return sum + c.LIGHT + c.AC + c.FAN + c.TV + c.OTHER;
+        }, 0);
+
+        contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แยกความถี่รายการปัญหาเป็น 5 หมวด (ไฟ, แอร์, พัดลม, ทีวี, อื่นๆ)";
+        viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่รายการปัญหาแยก 5 ประเภท";
 
         document.getElementById("overviewSummaryBox").innerHTML = `
           <div class="stat-box">
-            <div class="stat-label">จำนวนห้องที่มีปัญหา (ทุกตึก)</div>
-            <div class="stat-val">${uniqueRoomKeysSet.size}</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">จำนวนอาคารที่พบข้อมูล</div>
-            <div class="stat-val">${allBuildingsSet.size}</div>
+            <div class="stat-label">รวมรายการปัญหาทั้งหมด (5 หมวด)</div>
+            <div class="stat-val">${totalFiveIssues}</div>
           </div>
           <div class="stat-box">
             <div class="stat-label">ช่วงเวลาที่แสดง</div>
@@ -549,179 +542,145 @@
           </div>
         `;
 
-        tableDiv.style.display = "none";
-        chartWrap.style.display = "none";
-        summaryView.style.display = "block";
-        summaryView.innerHTML = buildOverallSummaryReport(dateRows);
+        if (mode === "table") {
+          singleChartWrap.style.display = "none";
+          fiveChartsWrap.style.display = "none";
+          tableDiv.style.display = "block";
+
+          if (!allBuildingsList.length) {
+            tableDiv.innerHTML = '<div class="muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>';
+            return;
+          }
+
+          tableDiv.innerHTML = `
+            <table>
+              <thead>
+                <tr>
+                  <th>ลำดับ</th>
+                  <th>อาคาร</th>
+                  <th>ไฟ</th>
+                  <th>แอร์</th>
+                  <th>พัดลม</th>
+                  <th>ทีวี</th>
+                  <th>อื่นๆ</th>
+                  <th>รวม</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allBuildingsList.map((b, idx) => {
+                  const c = buildingIssueCounts[b] || { LIGHT: 0, AC: 0, FAN: 0, TV: 0, OTHER: 0 };
+                  const rowSum = c.LIGHT + c.AC + c.FAN + c.TV + c.OTHER;
+                  return `
+                    <tr>
+                      <td>${idx + 1}</td>
+                      <td><strong>${b}</strong></td>
+                      <td>${c.LIGHT}</td>
+                      <td>${c.AC}</td>
+                      <td>${c.FAN}</td>
+                      <td>${c.TV}</td>
+                      <td>${c.OTHER}</td>
+                      <td><strong>${rowSum}</strong></td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          `;
+        } else {
+          tableDiv.style.display = "none";
+          singleChartWrap.style.display = "none";
+          fiveChartsWrap.style.display = "grid";
+          renderFiveIssueCharts(allBuildingsList, buildingIssueCounts, mode, chartUnit);
+        }
         return;
       }
 
-      if (selectedBuilding === "ALL") {
-        const metricMode = allBuildingsMetricEl.value;
-        const problemRows = dateRows.filter(isProblemRow);
+      // มุมมองพิจารณารายตึก
+      const focusKey = issueFocusFilterEl.value;
+      const focusThai = FOCUS_LABELS[focusKey] || "อื่นๆ";
 
-        const buildingCountMap = {};
-        const uniqueRoomsByBuilding = {};
+      const buildingRows = dateRows.filter(r => {
+        const b = String(r[2] || "").trim();
+        return b === selectedBuilding && isProblemRow(r);
+      });
 
-        problemRows.forEach(r => {
-          const b = String(r[2] || "ไม่ระบุอาคาร").trim();
-          const roomKey = normalizeRoomKey(r[4]);
+      const roomStats = {};
 
-          if (!uniqueRoomsByBuilding[b]) uniqueRoomsByBuilding[b] = new Set();
-          uniqueRoomsByBuilding[b].add(roomKey);
+      buildingRows.forEach(r => {
+        const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
+        const rawRoom = String(r[4] || "-").trim();
+        const roomKey = normalizeRoomKey(rawRoom);
+        const gradeVal = String(r[5] || "").trim();
+        const tokens = parseIssueTokens(r[6]);
 
-          buildingCountMap[b] = (buildingCountMap[b] || 0) + 1;
-        });
+        const matchingTokens = focusKey === "ALL_OVERVIEW"
+          ? tokens
+          : tokens.filter(t => t.category === focusKey);
 
-        const allBuildingsList = Array.from(new Set([
-          ...Object.keys(uniqueRoomsByBuilding),
-          ...Object.keys(buildingCountMap)
-        ])).sort((a, b) => a.localeCompare(b, "th"));
+        if (!matchingTokens.length) return;
 
-        if (metricMode === "problem_rooms") {
-          contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับจำนวน 'ห้องที่มีปัญหา' ในแต่ละตึก (ห้องที่มีปัญหา = นับเป็น 1 ห้อง)";
-          mainMetricLabel = "จำนวนห้องที่มีปัญหา (ห้อง)";
-          viewCardTitle.textContent = "ภาพรวมทุกตึก: จำนวนห้องที่มีปัญหาในแต่ละตึก";
-
-          labels = allBuildingsList;
-          values = allBuildingsList.map(b => (uniqueRoomsByBuilding[b] ? uniqueRoomsByBuilding[b].size : 0));
-
-          rowsForTable = allBuildingsList.map((b, i) => ({
-            rank: i + 1,
-            building: b,
-            countVal: values[i]
-          }));
-
-          currentViewExportRows = [
-            ["ลำดับ", "อาคาร", "จำนวนห้องที่มีปัญหา (ห้อง)"],
-            ...rowsForTable.map(r => [r.rank, r.building, r.countVal])
-          ];
-        } else {
-          contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แสดงความถี่ / รายการปัญหาที่บันทึกในแต่ละตึก";
-          mainMetricLabel = "จำนวนรายการ/ความถี่ปัญหา";
-          viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่ปัญหาในแต่ละตึก";
-
-          labels = allBuildingsList;
-          values = allBuildingsList.map(b => buildingCountMap[b] || 0);
-
-          rowsForTable = allBuildingsList.map((b, i) => ({
-            rank: i + 1,
-            building: b,
-            countVal: values[i]
-          }));
-
-          currentViewExportRows = [
-            ["ลำดับ", "อาคาร", "ความถี่ / จำนวนรายการปัญหา"],
-            ...rowsForTable.map(r => [r.rank, r.building, r.countVal])
-          ];
+        if (!roomStats[roomKey]) {
+          roomStats[roomKey] = {
+            room: rawRoom,
+            grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
+            countedDays: new Set(),
+            specificIssueFreq: 0,
+            issuesSet: new Set(),
+            otherDetailsSet: new Set()
+          };
         }
-      } else {
-        const focusKey = issueFocusFilterEl.value;
-        const focusThai = FOCUS_LABELS[focusKey] || "อื่นๆ";
 
-        const buildingRows = dateRows.filter(r => {
-          const b = String(r[2] || "").trim();
-          return b === selectedBuilding && isProblemRow(r);
-        });
+        roomStats[roomKey].countedDays.add(d);
+        roomStats[roomKey].specificIssueFreq += matchingTokens.length;
 
-        const roomStats = {};
-
-        buildingRows.forEach(r => {
-          const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
-          const rawRoom = String(r[4] || "-").trim();
-          const roomKey = normalizeRoomKey(rawRoom);
-          const gradeVal = String(r[5] || "").trim();
-          const tokens = parseIssueTokens(r[6]);
-
-          const matchingTokens = focusKey === "ALL_OVERVIEW"
-            ? tokens
-            : tokens.filter(t => t.category === focusKey);
-
-          if (!matchingTokens.length) return;
-
-          if (!roomStats[roomKey]) {
-            roomStats[roomKey] = {
-              room: rawRoom,
-              grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
-              countedDays: new Set(),
-              specificIssueFreq: 0,
-              issuesSet: new Set(),
-              otherDetailsSet: new Set()
-            };
+        matchingTokens.forEach(t => {
+          roomStats[roomKey].issuesSet.add(t.rawLabel);
+          if (t.category === "OTHER" && t.otherDetail) {
+            roomStats[roomKey].otherDetailsSet.add(t.otherDetail);
           }
-
-          roomStats[roomKey].countedDays.add(d);
-          roomStats[roomKey].specificIssueFreq += matchingTokens.length;
-
-          matchingTokens.forEach(t => {
-            roomStats[roomKey].issuesSet.add(t.rawLabel);
-            if (t.category === "OTHER" && t.otherDetail) {
-              roomStats[roomKey].otherDetailsSet.add(t.otherDetail);
-            }
-          });
         });
+      });
 
-        const sortedRooms = Object.values(roomStats)
-          .map(item => ({
-            ...item,
-            finalFrequency: focusKey === "ALL_OVERVIEW" ? item.countedDays.size : item.specificIssueFreq
-          }))
-          .filter(item => item.finalFrequency > 0)
-          .sort((a, b) => b.finalFrequency - a.finalFrequency || a.room.localeCompare(b.room, "th"));
+      const sortedRooms = Object.values(roomStats)
+        .map(item => ({
+          ...item,
+          finalFrequency: focusKey === "ALL_OVERVIEW" ? item.countedDays.size : item.specificIssueFreq
+        }))
+        .filter(item => item.finalFrequency > 0)
+        .sort((a, b) => b.finalFrequency - a.finalFrequency || a.room.localeCompare(b.room, "th"));
 
-        if (focusKey === "ALL_OVERVIEW") {
-          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — วันนั้นมีหลายปัญหาก็นับเป็น 1 ครั้ง และเรียงอันดับห้องที่พบปัญหา`;
-          mainMetricLabel = "ความถี่ที่พบปัญหา (ครั้ง)";
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
-        } else if (focusKey === "OTHER") {
-          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "อื่นๆ" (กราฟรวมเป็น "อื่นๆ" และตารางระบุรายละเอียดด้วยว่าคืออะไร)`;
-          mainMetricLabel = "อื่นๆ";
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "อื่นๆ"`;
-        } else {
-          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "${focusThai}" แสดงความถี่ของห้องที่พบปัญหานี้`;
-          mainMetricLabel = `ความถี่ "${focusThai}" (ครั้ง)`;
-          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusThai}"`;
-        }
+      const labels = sortedRooms.map(item => `ห้อง ${item.room}`);
+      const values = sortedRooms.map(item => item.finalFrequency);
 
-        labels = sortedRooms.map(item => `ห้อง ${item.room}`);
-        values = sortedRooms.map(item => item.finalFrequency);
+      const rowsForTable = sortedRooms.map((item, idx) => ({
+        rank: idx + 1,
+        room: item.room,
+        grade: item.grade,
+        roomAsOne: 1,
+        frequency: item.finalFrequency,
+        issuesList: Array.from(item.issuesSet).join(", "),
+        otherSpecify: Array.from(item.otherDetailsSet).join(", ") || "-"
+      }));
 
-        rowsForTable = sortedRooms.map((item, idx) => ({
-          rank: idx + 1,
-          room: item.room,
-          grade: item.grade,
-          roomAsOne: 1,
-          frequency: item.finalFrequency,
-          issuesList: Array.from(item.issuesSet).join(", "),
-          otherSpecify: Array.from(item.otherDetailsSet).join(", ") || "-"
-        }));
-
-        const isOtherFocus = focusKey === "OTHER";
-        currentViewExportRows = [
-          isOtherFocus
-            ? ["ลำดับ", "ห้อง", "ชั้น/ประเภท", "นับห้อง (ห้องละ 1)", "ความถี่ที่พบ (ครั้ง)", "ปัญหาที่พบ", "ระบุว่าคืออะไร (อื่นๆ)"]
-            : ["ลำดับ", "ห้อง", "ชั้น/ประเภท", "นับห้อง (ห้องละ 1)", "ความถี่ที่พบ (ครั้ง)", "ปัญหาที่พบ"],
-          ...rowsForTable.map(r => isOtherFocus
-            ? [r.rank, r.room, r.grade, r.roomAsOne, r.frequency, r.issuesList, r.otherSpecify]
-            : [r.rank, r.room, r.grade, r.roomAsOne, r.frequency, r.issuesList]
-          )
-        ];
+      if (focusKey === "ALL_OVERVIEW") {
+        contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — วันนั้นมีหลายปัญหาก็นับเป็น 1 ครั้ง และเรียงอันดับห้องที่พบปัญหา`;
+        viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
+      } else if (focusKey === "OTHER") {
+        contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "อื่นๆ" (กราฟรวมเป็น "อื่นๆ" และตารางระบุรายละเอียดด้วยว่าคืออะไร)`;
+        viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "อื่นๆ"`;
+      } else {
+        contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "${focusThai}" แสดงความถี่ของห้องที่พบปัญหานี้`;
+        viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusThai}"`;
       }
 
-      const totalCountDisplay = selectedBuilding === "ALL"
-        ? values.reduce((a, b) => a + b, 0)
-        : rowsForTable.length;
-
-      const totalLabelDisplay = selectedBuilding === "ALL"
-        ? mainMetricLabel
-        : (issueFocusFilterEl.value === "ALL_OVERVIEW"
-            ? "จำนวนห้องที่มีปัญหาในตึก"
-            : `จำนวนห้องที่พบปัญหา "${FOCUS_LABELS[issueFocusFilterEl.value]}"`);
+      const totalLabelDisplay = focusKey === "ALL_OVERVIEW"
+        ? "จำนวนห้องที่มีปัญหาในตึก"
+        : `จำนวนห้องที่พบปัญหา "${focusThai}"`;
 
       document.getElementById("overviewSummaryBox").innerHTML = `
         <div class="stat-box">
           <div class="stat-label">${totalLabelDisplay}</div>
-          <div class="stat-val">${totalCountDisplay}</div>
+          <div class="stat-val">${rowsForTable.length}</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">ช่วงเวลาที่แสดง</div>
@@ -730,8 +689,8 @@
       `;
 
       if (mode === "table") {
-        chartWrap.style.display = "none";
-        summaryView.style.display = "none";
+        singleChartWrap.style.display = "none";
+        fiveChartsWrap.style.display = "none";
         tableDiv.style.display = "block";
 
         if (!rowsForTable.length) {
@@ -739,182 +698,50 @@
           return;
         }
 
-        if (selectedBuilding === "ALL") {
-          const metricColTitle = allBuildingsMetricEl.value === "problem_rooms"
-            ? "จำนวนห้องที่มีปัญหา (ห้อง)"
-            : "ความถี่ / จำนวนรายการปัญหา";
-
-          tableDiv.innerHTML = `
-            <table>
-              <thead>
+        const isOtherFocus = focusKey === "OTHER";
+        tableDiv.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>ลำดับ</th>
+                <th>ห้อง</th>
+                <th>ชั้น/ประเภท</th>
+                <th>นับห้อง (ห้องละ 1)</th>
+                <th>ความถี่ที่พบ (ครั้ง)</th>
+                <th>ปัญหาที่พบ</th>
+                ${isOtherFocus ? "<th>ระบุว่าคืออะไร (อื่นๆ)</th>" : ""}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsForTable.map(row => `
                 <tr>
-                  <th>ลำดับ</th>
-                  <th>อาคาร</th>
-                  <th>${metricColTitle}</th>
+                  <td>${row.rank}</td>
+                  <td><strong>${row.room}</strong></td>
+                  <td>${row.grade}</td>
+                  <td>${row.roomAsOne}</td>
+                  <td><strong>${row.frequency}</strong></td>
+                  <td>${row.issuesList}</td>
+                  ${isOtherFocus ? `<td><strong>${row.otherSpecify}</strong></td>` : ""}
                 </tr>
-              </thead>
-              <tbody>
-                ${rowsForTable.map(row => `
-                  <tr>
-                    <td>${row.rank}</td>
-                    <td>${row.building}</td>
-                    <td><strong>${row.countVal}</strong></td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          `;
-        } else {
-          const isOtherFocus = issueFocusFilterEl.value === "OTHER";
-          tableDiv.innerHTML = `
-            <table>
-              <thead>
-                <tr>
-                  <th>ลำดับ</th>
-                  <th>ห้อง</th>
-                  <th>ชั้น/ประเภท</th>
-                  <th>นับห้อง (ห้องละ 1)</th>
-                  <th>ความถี่ที่พบ (ครั้ง)</th>
-                  <th>ปัญหาที่พบ</th>
-                  ${isOtherFocus ? "<th>ระบุว่าคืออะไร (อื่นๆ)</th>" : ""}
-                </tr>
-              </thead>
-              <tbody>
-                ${rowsForTable.map(row => `
-                  <tr>
-                    <td>${row.rank}</td>
-                    <td><strong>${row.room}</strong></td>
-                    <td>${row.grade}</td>
-                    <td>${row.roomAsOne}</td>
-                    <td><strong>${row.frequency}</strong></td>
-                    <td>${row.issuesList}</td>
-                    ${isOtherFocus ? `<td><strong>${row.otherSpecify}</strong></td>` : ""}
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          `;
-        }
+              `).join("")}
+            </tbody>
+          </table>
+        `;
       } else {
         tableDiv.style.display = "none";
-        summaryView.style.display = "none";
-        chartWrap.style.display = "block";
+        fiveChartsWrap.style.display = "none";
+        singleChartWrap.style.display = "block";
 
-        const chartDatasetLabel = (selectedBuilding !== "ALL" && issueFocusFilterEl.value === "OTHER")
+        const chartDatasetLabel = focusKey === "OTHER"
           ? "อื่นๆ"
-          : mainMetricLabel;
+          : (focusKey === "ALL_OVERVIEW" ? "ความถี่ที่พบปัญหา (ครั้ง)" : `ความถี่ "${focusThai}" (ครั้ง)`);
 
-        const sumValues = values.reduce((a, b) => a + b, 0);
-
-        if (chartInstance) chartInstance.destroy();
-        chartInstance = new Chart(canvas.getContext("2d"), {
-          type: mode,
-          data: {
-            labels: labels.length ? labels : ["ไม่มีข้อมูล"],
-            datasets: [{
-              label: chartDatasetLabel,
-              data: values.length ? values : [0],
-              backgroundColor: [
-                "#16a34a", "#0284c7", "#eab308", "#dc2626", "#9333ea",
-                "#0d9488", "#ea580c", "#4f46e5", "#db2777", "#65a30d"
-              ]
-            }]
-          },
-          options: {
-            responsive: true,
-            layout: {
-              padding: { top: 24, right: 16, left: 16, bottom: 8 }
-            },
-            plugins: {
-              legend: { position: "bottom" },
-              tooltip: {
-                callbacks: {
-                  label: function(ctx) {
-                    const val = Number(ctx.raw || 0);
-                    const pct = sumValues > 0 ? ((val / sumValues) * 100).toFixed(1) : "0.0";
-                    return `${ctx.label}: ${val} (${pct}%)`;
-                  }
-                }
-              },
-              datalabels: {
-                color: mode === "pie" ? "#ffffff" : "#111827",
-                font: { weight: "bold", size: 12 },
-                anchor: mode === "pie" ? "center" : "end",
-                align: mode === "pie" ? "center" : "top",
-                formatter: function(value) {
-                  const val = Number(value || 0);
-                  if (val === 0) return "0";
-                  if (chartUnit === "percent") {
-                    const pct = sumValues > 0 ? ((val / sumValues) * 100).toFixed(1) : "0.0";
-                    return `${pct}%`;
-                  }
-                  return `${val}`;
-                }
-              }
-            }
-          }
-        });
+        const inst = new Chart(
+          singleCanvas.getContext("2d"),
+          createChartConfig(mode, labels, values, chartDatasetLabel, chartUnit)
+        );
+        chartInstances.push(inst);
       }
-    }
-
-    function triggerDownloadUrl(dataUrl, filename) {
-      try {
-        const link = document.createElement("a");
-        link.download = filename;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (e) {
-        window.open(dataUrl, "_blank");
-      }
-    }
-
-    async function saveElementAsPng(elementId, filenamePrefix) {
-      const targetEl = document.getElementById(elementId);
-      if (!targetEl) return;
-      const stamp = new Date().toISOString().slice(0, 10);
-      const filename = `${filenamePrefix}_${stamp}.png`;
-
-      const activeCanvas = document.getElementById("chartCanvas");
-      if ((displayModeEl.value === "pie" || displayModeEl.value === "bar") && activeCanvas) {
-        triggerDownloadUrl(activeCanvas.toDataURL("image/png"), filename);
-        return;
-      }
-
-      if (typeof html2canvas === "function") {
-        try {
-          const renderedCanvas = await html2canvas(targetEl, {
-            backgroundColor: "#ffffff",
-            scale: 2,
-            useCORS: true,
-            logging: false
-          });
-          triggerDownloadUrl(renderedCanvas.toDataURL("image/png"), filename);
-          return;
-        } catch (err) {
-          alert("เบราว์เซอร์ภายในบล็อกการบันทึกรูปภาพ ลองเปิดในเบราว์เซอร์ภายนอกหรือกด Save ไฟล์ (CSV) แทนครับ");
-          return;
-        }
-      }
-
-      alert("ไม่พบไลบรารีบันทึกรูปภาพ ลองกด Save ไฟล์ (CSV) แทนครับ");
-    }
-
-    function saveRowsAsCsv(rows, filenamePrefix) {
-      if (!rows || rows.length <= 1) {
-        alert("ยังไม่มีข้อมูลสำหรับบันทึกไฟล์");
-        return;
-      }
-      const csvContent = "\uFEFF" + rows
-        .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
-        .join("\r\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const stamp = new Date().toISOString().slice(0, 10);
-      triggerDownloadUrl(url, `${filenamePrefix}_${stamp}.csv`);
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
     }
 
     displayModeEl.addEventListener("change", () => {
@@ -929,18 +756,6 @@
     allBuildingsMetricEl.addEventListener("change", renderStatsAndView);
     issueFocusFilterEl.addEventListener("change", renderStatsAndView);
     document.getElementById("applyFilterBtn").addEventListener("click", renderStatsAndView);
-
-    document.getElementById("saveViewImageBtn").addEventListener("click", () => {
-      const prefix = displayModeEl.value === "summary" ? "รายงานสรุปการตรวจอาคาร" : "สถิติการตรวจอาคาร";
-      saveElementAsPng("mainViewCard", prefix);
-    });
-    document.getElementById("saveViewCsvBtn").addEventListener("click", () => {
-      const isSummary = displayModeEl.value === "summary";
-      saveRowsAsCsv(
-        isSummary ? currentSummaryExportRows : currentViewExportRows,
-        isSummary ? "รายงานสรุปการตรวจอาคาร" : "สถิติการตรวจอาคาร"
-      );
-    });
 
     async function initAdminStatus() {
       let uid = "";
