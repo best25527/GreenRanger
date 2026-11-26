@@ -60,10 +60,11 @@
       background: #fff;
     }
     .grade-badge {
-      margin-top: 6px;
-      padding: 8px 10px;
-      border-radius: 8px;
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 10px;
       background: #ecfdf5;
+      border: 1px solid #a7f3d0;
       color: #065f46;
       font-size: 13px;
       font-weight: 600;
@@ -75,6 +76,10 @@
       justify-content: space-between;
       gap: 8px;
       flex-wrap: wrap;
+    }
+    .manual-grade-wrap {
+      margin-top: 8px;
+      display: none;
     }
     .check-group {
       display: flex;
@@ -225,9 +230,8 @@
 </head>
 <body>
   <div class="container">
-    <!-- ส่วนที่ 1: วัน อาคาร และกลุ่ม (คงไว้เมื่อกดเพิ่มห้องถัดไป) -->
     <div class="card">
-      <h2 class="card-title">1. ข้อมูลรอบการตรวจ </h2>
+      <h2 class="card-title">1. ข้อมูลรอบการตรวจ</h2>
 
       <label for="inspectDate">วันที่ตรวจ</label>
       <input type="date" id="inspectDate" required />
@@ -252,7 +256,6 @@
       </select>
     </div>
 
-    <!-- ส่วนที่ 2: กรอกเฉพาะห้องที่มีปัญหา -->
     <div class="card">
       <h2 class="card-title">2. รายละเอียดห้องที่พบปัญหา</h2>
 
@@ -266,6 +269,20 @@
             <input type="checkbox" id="notClassroomCheck" />
             <span>ไม่ใช่ห้องเรียน (กดเมื่อกรณีไม่ใช้ห้องประจำ)</span>
           </label>
+        </div>
+
+        <div id="manualGradeWrap" class="manual-grade-wrap">
+          <label for="manualGradeSelect" style="margin-top: 6px; color: #065f46;">เลือกระดับชั้นของห้องนี้</label>
+          <select id="manualGradeSelect">
+            <option value="">-- เลือกระดับชั้น --</option>
+            <option value="ม.1">ม.1</option>
+            <option value="ม.2">ม.2</option>
+            <option value="ม.3">ม.3</option>
+            <option value="ม.4">ม.4</option>
+            <option value="ม.5">ม.5</option>
+            <option value="ม.6">ม.6</option>
+            <option value="ห้องพิเศษ / อื่นๆ">ห้องพิเศษ / อื่นๆ</option>
+          </select>
         </div>
       </div>
 
@@ -315,7 +332,6 @@
       <button type="button" class="btn btn-add" id="addRoomBtn">+ กดส่งข้อมูลห้องที่รายงาน/เพิ่มห้องถัดไป</button>
     </div>
 
-    <!-- ส่วนที่ 3: รายการที่รอส่ง + ปุ่ม Preview รูป + ทุกห้องเรียบร้อยหมด + ลงชื่อยืนยัน -->
     <div class="card">
       <h2 class="card-title">3. รายการที่รอส่ง (<span id="queueCount">0</span> ห้อง)</h2>
       <div id="queuedList" class="muted">ยังไม่มีรายการห้องที่เพิ่มไว้</div>
@@ -360,6 +376,8 @@
     const gradeBox = document.getElementById("gradeBox");
     const gradeText = document.getElementById("gradeText");
     const notClassroomCheck = document.getElementById("notClassroomCheck");
+    const manualGradeWrap = document.getElementById("manualGradeWrap");
+    const manualGradeSelect = document.getElementById("manualGradeSelect");
     const allClearCb = document.getElementById("allClearCb");
     const forgotPhotoWrap = document.getElementById("forgotPhotoWrap");
     const allClearWrap = document.getElementById("allClearWrap");
@@ -409,16 +427,21 @@
 
     function lookupRoomInfo(building, room) {
       if (!building || !room) return "";
+      const bNorm = String(building).trim().toLowerCase();
+      const rNorm = String(room).trim().toLowerCase();
       const matched = roomDirectory.find(
-        r => String(r.building).trim() === String(building).trim() &&
-             String(r.room).trim().toLowerCase() === String(room).trim().toLowerCase()
+        r => String(r.building || "").trim().toLowerCase() === bNorm &&
+             String(r.room || "").trim().toLowerCase() === rNorm
       );
       return matched ? String(matched.gradeOrType || "").trim() : "";
     }
 
     function resolveRoomLabel() {
       if (notClassroomCheck.checked) return "ไม่ใช่ห้องเรียน";
-      return lookupRoomInfo(buildingSelect.value, roomInput.value.trim());
+      const fromSheet = lookupRoomInfo(buildingSelect.value, roomInput.value.trim());
+      if (fromSheet) return fromSheet;
+      const manualVal = String(manualGradeSelect.value || "").trim();
+      return manualVal || "-";
     }
 
     function updateGradeDisplay() {
@@ -427,22 +450,30 @@
       if (!r) {
         gradeBox.style.display = "none";
         gradeText.textContent = "";
+        manualGradeWrap.style.display = "none";
+        manualGradeSelect.value = "";
         return;
       }
 
+      gradeBox.style.display = "block";
+
       if (notClassroomCheck.checked) {
-        gradeBox.style.display = "block";
         gradeText.textContent = "ระบุเป็น: ไม่ใช่ห้องเรียน";
+        manualGradeWrap.style.display = "none";
+        manualGradeSelect.value = "";
         return;
       }
 
       const found = lookupRoomInfo(b, r);
       if (found) {
-        gradeBox.style.display = "block";
-        gradeText.textContent = found.includes("ไม่ใช่ห้องเรียน") ? `ระบุเป็น: ${found}` : `ระดับชั้น: ${found}`;
+        manualGradeWrap.style.display = "none";
+        manualGradeSelect.value = "";
+        gradeText.textContent = found.includes("ไม่ใช่ห้องเรียน")
+          ? `ระบุเป็น: ${found}`
+          : `ระดับชั้น: ${found}`;
       } else {
-        gradeBox.style.display = "block";
-        gradeText.textContent = "ไม่พบข้อมูลห้องในชีต (กรอกต่อได้ตามปกติ)";
+        gradeText.textContent = "ไม่พบข้อมูลห้องในชีต (เลือกระดับชั้นด้านล่างหรือกรอกต่อได้)";
+        manualGradeWrap.style.display = "block";
       }
     }
 
@@ -571,6 +602,8 @@
     function resetRoomFieldsOnly() {
       roomInput.value = "";
       notClassroomCheck.checked = false;
+      manualGradeSelect.value = "";
+      manualGradeWrap.style.display = "none";
       gradeBox.style.display = "none";
       gradeText.textContent = "";
 
@@ -612,6 +645,13 @@
         return;
       }
 
+      const foundInSheet = lookupRoomInfo(building, room);
+      if (!notClassroomCheck.checked && !foundInSheet && !manualGradeSelect.value) {
+        alert("กรุณาเลือกระดับชั้นของห้องนี้ หรือติ๊ก 'ไม่ใช่ห้องเรียน' ก่อนครับ");
+        manualGradeSelect.focus();
+        return;
+      }
+
       const selectedIssues = [];
       document.querySelectorAll(".issue-cb:checked").forEach(cb => selectedIssues.push(cb.value));
 
@@ -640,7 +680,7 @@
         building: building,
         group: group,
         room: room,
-        grade: resolveRoomLabel() || "-",
+        grade: resolveRoomLabel(),
         issues: selectedIssues,
         issuesSummary: selectedIssues.join(", "),
         forgotPhoto: forgotPhotoCb.checked,
@@ -725,39 +765,7 @@
       }
     });
 
-    async function loadRoomDirectoryOnce() {
+    async function loadRoomDirectoryOnce(uidParam = "") {
       if (!GAS_URL || GAS_URL === "YOUR_GAS_WEB_APP_URL") return;
       try {
-        const res = await fetch(`${GAS_URL}?action=get_room_directory`);
-        const data = await res.json();
-        if (data.status === "success" && Array.isArray(data.rooms)) {
-          roomDirectory = data.rooms;
-          updateGradeDisplay();
-        }
-      } catch (e) {
-        // ใช้งานต่อได้ตามปกติแม้โหลดผังห้องไม่สำเร็จ
-      }
-    }
-
-    async function initApp() {
-      syncForgotPhotoVisibility();
-      updateSubmitButtonState();
-      loadRoomDirectoryOnce();
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-        const profile = await liff.getProfile();
-        lineUid = profile.userId || "";
-        lineDisplayName = profile.displayName || "";
-      } catch (e) {
-        // เปิดทดสอบนอกบริบท LIFF ได้
-      }
-    }
-
-    initApp();
-  </script>
-</body>
-</html>
+        const queryUid = uidParam || lineUid || "";
