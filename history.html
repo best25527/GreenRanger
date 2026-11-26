@@ -68,12 +68,34 @@
     .btn-admin-link:hover {
       background: #dcfce7;
     }
-    .section-title {
-      margin: 0 0 10px 0;
+
+    /* หัวข้อหลักแบบกดเลื่อนลง */
+    details.main-section-accordion {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+    details.main-section-accordion > summary.main-section-summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      background: #f0fdf4;
+      color: var(--primary);
       font-size: 16px;
       font-weight: 700;
-      color: var(--primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
     }
+    details.main-section-accordion > summary.main-section-summary::-webkit-details-marker {
+      display: none;
+    }
+    .main-section-body {
+      padding: 12px 14px 14px;
+    }
+
     .att-summary-strip {
       display: flex;
       flex-wrap: wrap;
@@ -106,6 +128,8 @@
       border-color: #fde68a;
       color: #b45309;
     }
+
+    /* รายเดือนแบบกดเลื่อนลง */
     details.month-accordion {
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -146,6 +170,7 @@
     .month-body {
       padding: 0 10px 10px;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -187,6 +212,7 @@
     </div>
 
     <div id="historyContent" style="display: none;">
+      <!-- การ์ดทักทาย + ปุ่มมุมขวา (admin) -->
       <div class="card">
         <div class="top-header-row">
           <div>
@@ -199,21 +225,37 @@
         </div>
       </div>
 
-      <div class="card">
-        <h2 class="section-title">ประวัติการมา</h2>
-        <div id="attendanceStatsStrip" class="att-summary-strip"></div>
-        <div id="attendanceByMonthContainer"></div>
+      <!-- หัวข้อหลัก: ประวัติการมา (กดเลื่อนลง + สถิติ ลา/ขาด/สาย เล็กๆ ข้างบน + แยกตามรายเดือนแบบเลื่อนลง) -->
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <details class="main-section-accordion" open>
+          <summary class="main-section-summary">
+            <span>ประวัติการมา</span>
+            <span class="muted" style="font-size: 12px;">กดเปิด/ปิด</span>
+          </summary>
+          <div class="main-section-body">
+            <div id="attendanceStatsStrip" class="att-summary-strip"></div>
+            <div id="attendanceByMonthContainer"></div>
+          </div>
+        </details>
       </div>
 
-      <div class="card">
-        <h2 class="section-title">ประวัติการตรวจอาคารของฉัน</h2>
-        <div id="inspectionHistoryContainer"></div>
+      <!-- หัวข้อหลัก: ประวัติการตรวจอาคารของฉัน (กดเลื่อนลง + แยกตามรายเดือนแบบเลื่อนลง) -->
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <details class="main-section-accordion" open>
+          <summary class="main-section-summary">
+            <span>ประวัติการตรวจอาคารของฉัน</span>
+            <span class="muted" style="font-size: 12px;">กดเปิด/ปิด</span>
+          </summary>
+          <div class="main-section-body">
+            <div id="inspectionByMonthContainer"></div>
+          </div>
+        </details>
       </div>
     </div>
   </div>
 
   <script>
-    const LIFF_ID = "2012781926-HZZ9z5DB";
+    const LIFF_ID = "2012781938-SGvi6d7Y";
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_cZnCMzebyoaPd7BwyyrliX52wOBU2pyEJ7R0VTgzbne6jAh24dRYREu0V9KSMU_4/exec";
     const STATUS_PAGE_URL = "status.html";
 
@@ -369,8 +411,8 @@
       }).join("<br>");
     }
 
-    function renderInspectionHistory(inspectionLogs) {
-      const container = document.getElementById("inspectionHistoryContainer");
+    function renderInspectionByMonth(inspectionLogs) {
+      const container = document.getElementById("inspectionByMonthContainer");
       const logs = Array.isArray(inspectionLogs) ? inspectionLogs : [];
 
       if (!logs.length) {
@@ -378,32 +420,64 @@
         return;
       }
 
-      container.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>วันที่ตรวจ</th>
-              <th>อาคาร</th>
-              <th>ห้อง</th>
-              <th>ชั้น/ประเภท</th>
-              <th>ผลการตรวจ / ปัญหา</th>
-              <th>รูปภาพ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${logs.map(row => `
-              <tr>
-                <td>${formatDateStr(row[1] || row[0])}</td>
-                <td>${String(row[2] || "-")}</td>
-                <td><strong>${String(row[4] || "-")}</strong></td>
-                <td>${String(row[5] || "-")}</td>
-                <td>${String(row[6] || "-")}</td>
-                <td>${renderPhotoLinks(row[7])}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `;
+      const monthGroups = {};
+      logs.forEach(row => {
+        const dStr = formatDateStr(row[1] || row[0]);
+        const mKey = extractMonthKey(dStr);
+        if (!monthGroups[mKey]) monthGroups[mKey] = [];
+        monthGroups[mKey].push({
+          date: dStr,
+          building: String(row[2] || "-"),
+          room: String(row[4] || "-"),
+          grade: String(row[5] || "-"),
+          issues: String(row[6] || "-"),
+          photo: row[7]
+        });
+      });
+
+      const sortedMonths = Object.keys(monthGroups).sort((a, b) => b.localeCompare(a));
+
+      container.innerHTML = sortedMonths.map((mKey, index) => {
+        const items = monthGroups[mKey];
+        const openAttr = index === 0 ? " open" : "";
+
+        return `
+          <details class="month-accordion"${openAttr}>
+            <summary>
+              <span>${formatMonthLabel(mKey)} (${items.length} รายการ)</span>
+              <span class="month-mini-stats">
+                <span class="month-pill">ตรวจ ${items.length} ครั้ง</span>
+              </span>
+            </summary>
+            <div class="month-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th>วันที่ตรวจ</th>
+                    <th>อาคาร</th>
+                    <th>ห้อง</th>
+                    <th>ชั้น/ประเภท</th>
+                    <th>ผลการตรวจ / ปัญหา</th>
+                    <th>รูปภาพ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${items.map(it => `
+                    <tr>
+                      <td>${it.date}</td>
+                      <td>${it.building}</td>
+                      <td><strong>${it.room}</strong></td>
+                      <td>${it.grade}</td>
+                      <td>${it.issues}</td>
+                      <td>${renderPhotoLinks(it.photo)}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        `;
+      }).join("");
     }
 
     async function initHistoryPage() {
@@ -473,7 +547,7 @@
 
         contentCard.style.display = "block";
         renderAttendanceSection(data.attendanceLogs || []);
-        renderInspectionHistory(data.inspectionLogs || []);
+        renderInspectionByMonth(data.inspectionLogs || []);
       } catch (err) {
         loadingCard.style.display = "none";
         deniedCard.style.display = "block";
