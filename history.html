@@ -11,7 +11,7 @@
       --card: #ffffff;
       --primary: #15803d;
       --primary-dark: #166534;
-      --border: #d1d5db;
+      --border: #e5e7eb;
       --text: #111827;
       --muted: #6b7280;
     }
@@ -23,232 +23,402 @@
       background: var(--bg);
       color: var(--text);
     }
-    .container {
-      max-width: 600px;
-      margin: 0 auto 40px;
-    }
+    .container { max-width: 820px; margin: 0 auto 40px; }
     .card {
       background: var(--card);
       border-radius: 14px;
-      padding: 14px 16px;
+      padding: 16px;
       margin-bottom: 14px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--border);
     }
-    .toggle-header {
-      width: 100%;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
+    .top-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .greeting-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+    .sub-uid {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      word-break: break-all;
+    }
+    .btn-admin-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #166534;
+      border: 1px solid #86efac;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-admin-link:hover {
+      background: #dcfce7;
+    }
+    .section-title {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .att-summary-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .att-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: #f9fafb;
+    }
+    .chip-leave {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+    .chip-absent {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #b91c1c;
+    }
+    .chip-late {
+      background: #fffbeb;
+      border-color: #fde68a;
+      color: #b45309;
+    }
+    details.month-accordion {
+      border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: #fff;
+      overflow: hidden;
+    }
+    details.month-accordion > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      background: #f8fafc;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      text-align: left;
-      color: var(--primary-dark);
-      font-size: 15px;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-weight: 700;
+      font-size: 14px;
+      color: #0f172a;
+    }
+    details.month-accordion > summary::-webkit-details-marker {
+      display: none;
+    }
+    .month-mini-stats {
+      display: inline-flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: 11px;
       font-weight: 700;
     }
-    .toggle-header:hover {
-      background: #dcfce7;
+    .month-pill {
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      color: #374151;
     }
-    .toggle-sub {
-      font-size: 12px;
-      font-weight: 600;
-      color: #0f766e;
-      white-space: nowrap;
+    .month-body {
+      padding: 0 10px 10px;
     }
-    .collapse-body {
-      display: none;
-      margin-top: 12px;
-    }
-    .collapse-body.is-open {
-      display: block;
-    }
-    .log-item {
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 10px;
-      background: #f9fafb;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
       font-size: 13px;
-      line-height: 1.5;
     }
-    .photo-links {
-      margin-top: 6px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
     }
-    .photo-links a {
-      color: #0f766e;
+    th { background: #f3f4f6; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .denied-box {
+      text-align: center;
+      padding: 28px 14px;
+      color: #991b1b;
+      font-weight: 700;
+    }
+    .photo-link {
+      display: inline-block;
+      color: #15803d;
       font-weight: 600;
-      text-decoration: none;
-      word-break: break-all;
-    }
-    .photo-links a:hover {
       text-decoration: underline;
-    }
-    .muted {
-      color: var(--muted);
-      font-size: 13px;
-    }
-    #statusBox {
-      font-size: 14px;
-      font-weight: 600;
-      color: #0f766e;
-      margin-bottom: 10px;
+      margin-bottom: 2px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div id="statusBox">กำลังโหลดประวัติ...</div>
-
-    <!-- กล่อง 1: ประวัติการตรวจอาคาร (พับย่อไว้ก่อน) -->
-    <div class="card">
-      <button type="button" class="toggle-header" onclick="toggleSection('inspectionBody', 'inspectionToggleLabel')">
-        <span>ประวัติการตรวจอาคารของฉัน (<span id="inspectionCount">0</span>)</span>
-        <span id="inspectionToggleLabel" class="toggle-sub">กดเพื่อดู ▼</span>
-      </button>
-      <div id="inspectionBody" class="collapse-body">
-        <div id="inspectionList" class="muted">กำลังโหลดข้อมูล...</div>
-      </div>
+    <div id="loadingCard" class="card">
+      <div class="muted">กำลังโหลดประวัติและตรวจสอบข้อมูลผู้ใช้...</div>
     </div>
 
-    <!-- กล่อง 2: ประวัติการมา (พับย่อไว้ก่อน) -->
-    <div class="card">
-      <button type="button" class="toggle-header" onclick="toggleSection('attendanceBody', 'attendanceToggleLabel')">
-        <span>ประวัติการมา (มา / สาย / ลา / ขาด) (<span id="attendanceCount">0</span>)</span>
-        <span id="attendanceToggleLabel" class="toggle-sub">กดเพื่อดู ▼</span>
-      </button>
-      <div id="attendanceBody" class="collapse-body">
-        <div id="attendanceList" class="muted">กำลังโหลดข้อมูล...</div>
+    <div id="deniedCard" class="card denied-box" style="display: none;">
+      <div id="deniedMessage">บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าใช้งาน กรุณาติดต่อผู้ดูแลระบบ</div>
+      <div id="deniedUidText" class="sub-uid" style="margin-top: 8px;"></div>
+    </div>
+
+    <div id="historyContent" style="display: none;">
+      <!-- การ์ดทักทาย + ปุ่มมุมขวา (admin) -->
+      <div class="card">
+        <div class="top-header-row">
+          <div>
+            <h1 id="greetingText" class="greeting-title">สวัสดีครับ</h1>
+            <div id="userMetaText" class="sub-uid"></div>
+          </div>
+          <a id="adminStatusBtn" href="status.html" class="btn-admin-link" style="display: none;">
+            สถิติ (admin) ›
+          </a>
+        </div>
+      </div>
+
+      <!-- การ์ดประวัติการมา (สถิติ ลา/ขาด/สาย เล็กๆ ข้างบน + แยกตามรายเดือนแบบเลื่อนลง) -->
+      <div class="card">
+        <h2 class="section-title">ประวัติการมา</h2>
+
+        <div id="attendanceStatsStrip" class="att-summary-strip"></div>
+        <div id="attendanceByMonthContainer"></div>
+      </div>
+
+      <!-- การ์ดประวัติการตรวจอาคาร -->
+      <div class="card">
+        <h2 class="section-title">ประวัติการตรวจอาคารของฉัน</h2>
+        <div id="inspectionHistoryContainer"></div>
       </div>
     </div>
   </div>
 
   <script>
-    const LIFF_ID = "2012781926-HZZ9z5DB";
+    const LIFF_ID = "2012781938-SGvi6d7Y";
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_cZnCMzebyoaPd7BwyyrliX52wOBU2pyEJ7R0VTgzbne6jAh24dRYREu0V9KSMU_4/exec";
+    const STATUS_PAGE_URL = "status.html";
 
-    const statusBox = document.getElementById("statusBox");
-    const inspectionList = document.getElementById("inspectionList");
-    const attendanceList = document.getElementById("attendanceList");
-    const inspectionCount = document.getElementById("inspectionCount");
-    const attendanceCount = document.getElementById("attendanceCount");
-
-    window.toggleSection = function(bodyId, labelId) {
-      const bodyEl = document.getElementById(bodyId);
-      const labelEl = document.getElementById(labelId);
-      if (!bodyEl || !labelEl) return;
-
-      const willOpen = !bodyEl.classList.contains("is-open");
-      bodyEl.classList.toggle("is-open", willOpen);
-      labelEl.textContent = willOpen ? "กดเพื่อย่อ ▲" : "กดเพื่อดู ▼";
-    };
-
-    function renderPhotoCell(rawVal) {
-      const text = String(rawVal || "").trim();
-      if (!text || text === "-" || text === "ลืมถ่ายรูป") {
-        return `<div>รูปภาพ: ${text || "-"}</div>`;
-      }
-      const urls = text
-        .split(/\r?\n/)
-        .map(u => u.trim())
-        .filter(u => u.startsWith("http"));
-
-      if (urls.length === 0) {
-        return `<div>รูปภาพ: ${text}</div>`;
-      }
-
-      const linksHtml = urls
-        .map((url, idx) => `<a href="${url}" target="_blank" rel="noopener">เปิดดูรูปที่ ${idx + 1}</a>`)
-        .join("");
-
-      return `<div class="photo-links"><div>รูปภาพ (${urls.length} รูป):</div>${linksHtml}</div>`;
-    }
-
-    function formatDateText(val) {
+    function formatDateStr(val) {
       if (!val) return "-";
-      const str = String(val);
-      return str.includes("T") ? str.slice(0, 10) : str;
+      const str = String(val).trim();
+      const match = str.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) return match[1];
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      return str;
     }
 
-    function renderInspections(logs) {
-      const list = Array.isArray(logs) ? logs : [];
-      inspectionCount.textContent = list.length;
+    function extractMonthKey(dateStr) {
+      const clean = formatDateStr(dateStr);
+      const m = clean.match(/^(\d{4}-\d{2})/);
+      return m ? m[1] : "ไม่ระบุเดือน";
+    }
 
-      if (list.length === 0) {
-        inspectionList.innerHTML = '<div class="muted">ยังไม่มีประวัติการตรวจอาคารครับ</div>';
+    function formatMonthLabel(monthKey) {
+      if (monthKey === "ไม่ระบุเดือน") return "ไม่ระบุเดือน";
+      const parts = monthKey.split("-");
+      if (parts.length !== 2) return monthKey;
+      const year = Number(parts[0]);
+      const monthIdx = Number(parts[1]) - 1;
+      const thaiMonths = [
+        "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+        "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+      ];
+      const monthName = thaiMonths[monthIdx] || parts[1];
+      const thaiYear = year > 2400 ? year : year + 543;
+      return `${monthName} ${thaiYear} (${monthKey})`;
+    }
+
+    function classifyAttendanceStatus(rawStatus) {
+      const s = String(rawStatus || "").trim().toLowerCase();
+      if (!s) return "OTHER";
+      if (s.includes("ลา") || s.includes("leave") || s.includes("sick") || s.includes("ลากิจ") || s.includes("ลาป่วย")) {
+        return "LEAVE";
+      }
+      if (s.includes("ขาด") || s.includes("absent") || s === "a") {
+        return "ABSENT";
+      }
+      if (s.includes("สาย") || s.includes("late") || s === "l") {
+        return "LATE";
+      }
+      return "OTHER";
+    }
+
+    function countStatusList(logs) {
+      let leave = 0;
+      let absent = 0;
+      let late = 0;
+      (logs || []).forEach(row => {
+        const st = classifyAttendanceStatus(row[3]);
+        if (st === "LEAVE") leave += 1;
+        else if (st === "ABSENT") absent += 1;
+        else if (st === "LATE") late += 1;
+      });
+      return { leave, absent, late };
+    }
+
+    function renderAttendanceSection(attendanceLogs) {
+      const stripEl = document.getElementById("attendanceStatsStrip");
+      const monthContainerEl = document.getElementById("attendanceByMonthContainer");
+
+      const logs = Array.isArray(attendanceLogs) ? attendanceLogs : [];
+      const totalCounts = countStatusList(logs);
+
+      stripEl.innerHTML = `
+        <span class="att-chip chip-leave">ลา: ${totalCounts.leave} ครั้ง</span>
+        <span class="att-chip chip-absent">ขาด: ${totalCounts.absent} ครั้ง</span>
+        <span class="att-chip chip-late">สาย: ${totalCounts.late} ครั้ง</span>
+      `;
+
+      if (!logs.length) {
+        monthContainerEl.innerHTML = '<div class="muted">ไม่พบข้อมูลประวัติการมา</div>';
         return;
       }
 
-      inspectionList.innerHTML = list.map((r, idx) => {
-        const dateVal = formatDateText(r[1]);
-        const buildingVal = r[2] || "-";
-        const groupVal = r[3] || "-";
-        const roomVal = r[4] || "-";
-        const gradeVal = r[5] && r[5] !== "-" ? ` (${r[5]})` : "";
-        const issuesVal = r[6] || "-";
-        const signerVal = r[8] || "-";
+      const monthGroups = {};
+      logs.forEach(row => {
+        const dStr = formatDateStr(row[0]);
+        const mKey = extractMonthKey(dStr);
+        if (!monthGroups[mKey]) monthGroups[mKey] = [];
+        monthGroups[mKey].push({
+          date: dStr,
+          status: String(row[3] || "-").trim(),
+          note: String(row[4] || "-").trim()
+        });
+      });
+
+      // เรียงเดือนล่าสุดขึ้นก่อน
+      const sortedMonths = Object.keys(monthGroups).sort((a, b) => b.localeCompare(a));
+
+      monthContainerEl.innerHTML = sortedMonths.map((mKey, index) => {
+        const items = monthGroups[mKey];
+        const mCounts = countStatusList(items.map(x => [x.date, "", "", x.status, x.note]));
+        const openAttr = index === 0 ? " open" : "";
 
         return `
-          <div class="log-item">
-            <div><strong>${idx + 1}. ${dateVal} | ${groupVal} | ${buildingVal} | ห้อง ${roomVal}${gradeVal}</strong></div>
-            <div>ปัญหา: ${issuesVal}</div>
-            <div>ผู้ลงชื่อ: ${signerVal}</div>
-            ${renderPhotoCell(r[7])}
-          </div>
+          <details class="month-accordion"${openAttr}>
+            <summary>
+              <span>${formatMonthLabel(mKey)} (${items.length} รายการ)</span>
+              <span class="month-mini-stats">
+                <span class="month-pill">ลา ${mCounts.leave}</span>
+                <span class="month-pill">ขาด ${mCounts.absent}</span>
+                <span class="month-pill">สาย ${mCounts.late}</span>
+              </span>
+            </summary>
+            <div class="month-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 120px;">วันที่</th>
+                    <th style="width: 130px;">สถานะ</th>
+                    <th>หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${items.map(it => `
+                    <tr>
+                      <td>${it.date}</td>
+                      <td><strong>${it.status || "-"}</strong></td>
+                      <td>${it.note || "-"}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </details>
         `;
       }).join("");
     }
 
-    function renderAttendance(logs) {
-      const list = Array.isArray(logs) ? logs : [];
-      attendanceCount.textContent = list.length;
-
-      if (list.length === 0) {
-        attendanceList.innerHTML = '<div class="muted">ยังไม่มีประวัติการมาครับ</div>';
-        return;
+    function renderPhotoLinks(photoField) {
+      const raw = String(photoField || "").trim();
+      if (!raw || raw === "-" || raw === "ลืมถ่ายรูป") {
+        return raw || "-";
       }
-
-      attendanceList.innerHTML = list.map((row, idx) => {
-        const d = formatDateText(row[0]);
-        const st = row[3] || "-";
-        return `
-          <div class="log-item">
-            <div><strong>${idx + 1}. วันที่ ${d}</strong> — สถานะ: <strong>${st}</strong></div>
-          </div>
-        `;
-      }).join("");
-    }
-
-    async function loadHistory(uid) {
-      try {
-        const url = `${GAS_URL}?action=get_my_history&uid=${encodeURIComponent(uid)}`;
-        const res = await fetch(url);
-        const data = await res.json();
-
-        if (data.status !== "success") {
-          statusBox.style.color = "#b91c1c";
-          statusBox.textContent = "โหลดประวัติไม่สำเร็จ: " + (data.message || "");
-          return;
+      const urls = raw.split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+      if (!urls.length) return "-";
+      return urls.map((u, i) => {
+        if (/^https?:\/\//i.test(u)) {
+          const label = urls.length > 1 ? `ดูรูปที่ ${i + 1}` : "ดูรูปภาพ";
+          return `<a class="photo-link" href="${u}" target="_blank" rel="noopener noreferrer">${label}</a>`;
         }
+        return u;
+      }).join("<br>");
+    }
 
-        statusBox.style.color = "#15803d";
-        statusBox.textContent = "โหลดประวัติเรียบร้อยแล้ว";
-        renderInspections(data.inspectionLogs || []);
-        renderAttendance(data.attendanceLogs || []);
-      } catch (err) {
-        statusBox.style.color = "#b91c1c";
-        statusBox.textContent = "เกิดข้อผิดพลาดในการดึงข้อมูลประวัติ";
+    function renderInspectionHistory(inspectionLogs) {
+      const container = document.getElementById("inspectionHistoryContainer");
+      const logs = Array.isArray(inspectionLogs) ? inspectionLogs : [];
+
+      if (!logs.length) {
+        container.innerHTML = '<div class="muted">ยังไม่มีประวัติการตรวจอาคาร</div>';
+        return;
       }
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>วันที่ตรวจ</th>
+              <th>อาคาร</th>
+              <th>ห้อง</th>
+              <th>ชั้น/ประเภท</th>
+              <th>ผลการตรวจ / ปัญหา</th>
+              <th>รูปภาพ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${logs.map(row => `
+              <tr>
+                <td>${formatDateStr(row[1] || row[0])}</td>
+                <td>${String(row[2] || "-")}</td>
+                <td><strong>${String(row[4] || "-")}</strong></td>
+                <td>${String(row[5] || "-")}</td>
+                <td>${String(row[6] || "-")}</td>
+                <td>${renderPhotoLinks(row[7])}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
     }
 
     async function initHistoryPage() {
+      const loadingCard = document.getElementById("loadingCard");
+      const deniedCard = document.getElementById("deniedCard");
+      const contentCard = document.getElementById("historyContent");
+
+      let uid = "";
+      let lineDisplayName = "";
+
       try {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
@@ -256,18 +426,51 @@
           return;
         }
         const profile = await liff.getProfile();
-        const uid = profile.userId || "";
-        statusBox.textContent = `สวัสดี ${profile.displayName || ""} กำลังโหลดประวัติ...`;
-        await loadHistory(uid);
+        uid = profile.userId || "";
+        lineDisplayName = profile.displayName || "";
       } catch (e) {
         const params = new URLSearchParams(window.location.search);
-        const testUid = params.get("uid") || "";
-        if (testUid) {
-          await loadHistory(testUid);
-        } else {
-          statusBox.style.color = "#b91c1c";
-          statusBox.textContent = "ไม่พบข้อมูลผู้ใช้งาน LINE (ลองเปิดผ่าน LIFF หรือระบุ ?uid=...)";
+        uid = params.get("uid") || "";
+      }
+
+      try {
+        const res = await fetch(`${GAS_URL}?action=get_my_history&uid=${encodeURIComponent(uid)}`);
+        const data = await res.json();
+
+        loadingCard.style.display = "none";
+
+        if (!data || !data.authorized) {
+          deniedCard.style.display = "block";
+          document.getElementById("deniedUidText").textContent = uid ? `UID: ${uid}` : "ไม่พบ UID ผู้ใช้งาน";
+          return;
         }
+
+        // ใช้ชื่อจากชีตที่ผูกกับ uid เป็นหลัก ไม่ใช้ชื่อไลน์
+        const sheetName = String(data.name || data.sheetName || "").trim();
+        const displayName = sheetName || (data.inspectionLogs && data.inspectionLogs[0] && String(data.inspectionLogs[0][8] || "").trim()) || lineDisplayName || "ผู้ใช้งาน";
+
+        document.getElementById("greetingText").textContent = `สวัสดีครับ คุณ${displayName}`;
+        const roleLabel = data.role ? `สิทธิ์: ${data.role}` : "";
+        document.getElementById("userMetaText").textContent = roleLabel;
+
+        // แสดงปุ่มมุมขวา (admin) เฉพาะผู้ที่เป็น Admin
+        const adminBtn = document.getElementById("adminStatusBtn");
+        const isAdmin = String(data.role || "").trim().toLowerCase() === "admin";
+        if (isAdmin) {
+          adminBtn.href = uid ? `${STATUS_PAGE_URL}?uid=${encodeURIComponent(uid)}` : STATUS_PAGE_URL;
+          adminBtn.style.display = "inline-flex";
+        } else {
+          adminBtn.style.display = "none";
+        }
+
+        contentCard.style.display = "block";
+        renderAttendanceSection(data.attendanceLogs || []);
+        renderInspectionHistory(data.inspectionLogs || []);
+      } catch (err) {
+        loadingCard.style.display = "none";
+        deniedCard.style.display = "block";
+        document.getElementById("deniedMessage").textContent = "เกิดข้อผิดพลาดในการโหลดข้อมูลประวัติ";
+        document.getElementById("deniedUidText").textContent = err.message || "";
       }
     }
 
