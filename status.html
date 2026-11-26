@@ -183,7 +183,7 @@
             </select>
           </div>
 
-          <div>
+          <div id="buildingFilterWrap">
             <label for="buildingFilter">เลือกมุมมอง / อาคาร</label>
             <select id="buildingFilter">
               <option value="ALL">ภาพรวมทุกตึก</option>
@@ -280,6 +280,7 @@
     const displayModeEl = document.getElementById("displayMode");
     const chartUnitWrapEl = document.getElementById("chartUnitWrap");
     const chartUnitModeEl = document.getElementById("chartUnitMode");
+    const buildingFilterWrapEl = document.getElementById("buildingFilterWrap");
     const buildingFilterEl = document.getElementById("buildingFilter");
     const allBuildingsMetricWrap = document.getElementById("allBuildingsMetricWrap");
     const allBuildingsMetricEl = document.getElementById("allBuildingsMetric");
@@ -288,12 +289,14 @@
     const contextHintEl = document.getElementById("contextHint");
 
     function syncFilterControlsVisibility() {
+      const isSummary = displayModeEl.value === "summary";
       const isAllBuildings = buildingFilterEl.value === "ALL";
       const isChart = displayModeEl.value === "pie" || displayModeEl.value === "bar";
 
-      allBuildingsMetricWrap.style.display = isAllBuildings ? "block" : "none";
-      singleBuildingFocusWrap.style.display = isAllBuildings ? "none" : "block";
-      chartUnitWrapEl.style.display = isChart ? "block" : "none";
+      buildingFilterWrapEl.style.display = isSummary ? "none" : "block";
+      allBuildingsMetricWrap.style.display = (!isSummary && isAllBuildings) ? "block" : "none";
+      singleBuildingFocusWrap.style.display = (!isSummary && !isAllBuildings) ? "block" : "none";
+      chartUnitWrapEl.style.display = (!isSummary && isChart) ? "block" : "none";
     }
 
     function normalizeDateKey(val) {
@@ -368,20 +371,17 @@
       return "ตลอดช่วงเวลาทั้งหมดในระบบ";
     }
 
-    function buildOverallSummaryReport(dateRows, selectedBuilding) {
-      const problemRows = dateRows.filter(isProblemRow).filter(r => {
-        if (selectedBuilding === "ALL") return true;
-        return String(r[2] || "").trim() === selectedBuilding;
-      });
+    function buildOverallSummaryReport(dateRows) {
+      const problemRows = dateRows.filter(isProblemRow);
 
       const rangeLabel = getDateRangeLabel();
       currentSummaryExportRows = [
-        ["รายงานสรุปภาพรวมการตรวจอาคาร", rangeLabel],
+        ["รายงานสรุปภาพรวมการตรวจอาคาร (ทุกตึก)", rangeLabel],
         ["อาคาร", "จำนวนห้องที่มีปัญหาในตึก (ห้อง)", "อันดับในตึก", "เลขห้อง/ชื่อห้อง", "ชั้น/ประเภท", "ความถี่ที่มีปัญหา (ครั้ง/วัน)", "ปัญหาที่เคยพบ"]
       ];
 
       if (!problemRows.length) {
-        return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาในช่วงเวลานี้ครับ (ลองล้างช่องวันที่หรือกดอัปเดตสถิติ)</div>`;
+        return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาในทุกตึกครับ</div>`;
       }
 
       const buildingMap = {};
@@ -410,7 +410,7 @@
         });
       });
 
-      const buildingNames = Object.keys(buildingMap).sort();
+      const buildingNames = Object.keys(buildingMap).sort((a, b) => a.localeCompare(b, "th"));
       let totalRoomsWithIssues = 0;
 
       const buildingSummaries = buildingNames.map(b => {
@@ -422,7 +422,7 @@
             issues: Array.from(item.issuesSet).join(", ")
           }))
           .filter(item => item.freq > 0)
-          .sort((a, bItem) => bItem.freq - aItem.freq);
+          .sort((a, bItem) => bItem.freq - aItem.freq || a.room.localeCompare(bItem.room, "th"));
 
         totalRoomsWithIssues += roomList.length;
 
@@ -448,7 +448,7 @@
       const overviewTableHtml = `
         <div class="report-section-box">
           <div style="font-size: 13px; font-weight: 700; color: #065f46; margin-bottom: 6px;">
-            สรุปภาพรวม (${rangeLabel}) — พบปัญหาทั้งหมด ${totalRoomsWithIssues} ห้อง จาก ${buildingSummaries.length} อาคาร
+            สรุปภาพรวมทุกตึก (${rangeLabel}) — พบปัญหาทั้งหมด ${totalRoomsWithIssues} ห้อง จาก ${buildingSummaries.length} อาคาร
           </div>
           <table>
             <thead>
@@ -508,7 +508,7 @@
 
       const mode = displayModeEl.value;
       const chartUnit = chartUnitModeEl.value;
-      const selectedBuilding = buildingFilterEl.value;
+      const selectedBuilding = mode === "summary" ? "ALL" : buildingFilterEl.value;
       const dateRows = getDateFilteredRows();
 
       const tableDiv = document.getElementById("tableView");
@@ -521,6 +521,36 @@
       let values = [];
       let mainMetricLabel = "";
       let rowsForTable = [];
+
+      if (mode === "summary") {
+        const allProblemRows = dateRows.filter(isProblemRow);
+        const allBuildingsSet = new Set(allProblemRows.map(r => String(r[2] || "ไม่ระบุอาคาร").trim()));
+        const uniqueRoomKeysSet = new Set(allProblemRows.map(r => `${String(r[2] || "ไม่ระบุอาคาร").trim()}__${normalizeRoomKey(r[4])}`));
+
+        contextHintEl.textContent = "โหมด: รายงานสรุปภาพรวม — แสดงข้อมูลทุกตึกอัตโนมัติ (เลือกได้เฉพาะช่วงวันที่)";
+        viewCardTitle.textContent = "รายงานสรุปภาพรวมทุกตึก";
+
+        document.getElementById("overviewSummaryBox").innerHTML = `
+          <div class="stat-box">
+            <div class="stat-label">จำนวนห้องที่มีปัญหา (ทุกตึก)</div>
+            <div class="stat-val">${uniqueRoomKeysSet.size}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">จำนวนอาคารที่พบข้อมูล</div>
+            <div class="stat-val">${allBuildingsSet.size}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">ช่วงเวลาที่แสดง</div>
+            <div class="stat-val" style="font-size:14px;">${getDateRangeLabel()}</div>
+          </div>
+        `;
+
+        tableDiv.style.display = "none";
+        chartWrap.style.display = "none";
+        summaryView.style.display = "block";
+        summaryView.innerHTML = buildOverallSummaryReport(dateRows);
+        return;
+      }
 
       if (selectedBuilding === "ALL") {
         const metricMode = allBuildingsMetricEl.value;
@@ -542,14 +572,12 @@
         const allBuildingsList = Array.from(new Set([
           ...Object.keys(uniqueRoomsByBuilding),
           ...Object.keys(buildingCountMap)
-        ])).sort();
+        ])).sort((a, b) => a.localeCompare(b, "th"));
 
         if (metricMode === "problem_rooms") {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับจำนวน 'ห้องที่มีปัญหา' ในแต่ละตึก (ห้องที่มีปัญหา = นับเป็น 1 ห้อง)";
           mainMetricLabel = "จำนวนห้องที่มีปัญหา (ห้อง)";
-          viewCardTitle.textContent = mode === "summary"
-            ? "รายงานสรุปภาพรวมทุกตึก"
-            : "ภาพรวมทุกตึก: จำนวนห้องที่มีปัญหาในแต่ละตึก";
+          viewCardTitle.textContent = "ภาพรวมทุกตึก: จำนวนห้องที่มีปัญหาในแต่ละตึก";
 
           labels = allBuildingsList;
           values = allBuildingsList.map(b => (uniqueRoomsByBuilding[b] ? uniqueRoomsByBuilding[b].size : 0));
@@ -567,9 +595,7 @@
         } else {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แสดงความถี่ / รายการปัญหาที่บันทึกในแต่ละตึก";
           mainMetricLabel = "จำนวนรายการ/ความถี่ปัญหา";
-          viewCardTitle.textContent = mode === "summary"
-            ? "รายงานสรุปภาพรวมทุกตึก"
-            : "ภาพรวมทุกตึก: ความถี่ปัญหาในแต่ละตึก";
+          viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่ปัญหาในแต่ละตึก";
 
           labels = allBuildingsList;
           values = allBuildingsList.map(b => buildingCountMap[b] || 0);
@@ -637,26 +663,20 @@
             finalFrequency: focusKey === "ALL_OVERVIEW" ? item.countedDays.size : item.specificIssueFreq
           }))
           .filter(item => item.finalFrequency > 0)
-          .sort((a, b) => b.finalFrequency - a.finalFrequency);
+          .sort((a, b) => b.finalFrequency - a.finalFrequency || a.room.localeCompare(b.room, "th"));
 
         if (focusKey === "ALL_OVERVIEW") {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — วันนั้นมีหลายปัญหาก็นับเป็น 1 ครั้ง และเรียงอันดับห้องที่พบปัญหา`;
           mainMetricLabel = "ความถี่ที่พบปัญหา (ครั้ง)";
-          viewCardTitle.textContent = mode === "summary"
-            ? `รายงานสรุปภาพรวม: ${selectedBuilding}`
-            : `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
+          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
         } else if (focusKey === "OTHER") {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "อื่นๆ" (กราฟรวมเป็น "อื่นๆ" และตารางระบุรายละเอียดด้วยว่าคืออะไร)`;
           mainMetricLabel = "อื่นๆ";
-          viewCardTitle.textContent = mode === "summary"
-            ? `รายงานสรุปภาพรวม: ${selectedBuilding}`
-            : `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "อื่นๆ"`;
+          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "อื่นๆ"`;
         } else {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "${focusThai}" แสดงความถี่ของห้องที่พบปัญหานี้`;
           mainMetricLabel = `ความถี่ "${focusThai}" (ครั้ง)`;
-          viewCardTitle.textContent = mode === "summary"
-            ? `รายงานสรุปภาพรวม: ${selectedBuilding}`
-            : `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusThai}"`;
+          viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่พบปัญหา "${focusThai}"`;
         }
 
         labels = sortedRooms.map(item => `ห้อง ${item.room}`);
@@ -771,11 +791,6 @@
             </table>
           `;
         }
-      } else if (mode === "summary") {
-        tableDiv.style.display = "none";
-        chartWrap.style.display = "none";
-        summaryView.style.display = "block";
-        summaryView.innerHTML = buildOverallSummaryReport(dateRows, selectedBuilding);
       } else {
         tableDiv.style.display = "none";
         summaryView.style.display = "none";
@@ -884,7 +899,7 @@
 
     function saveRowsAsCsv(rows, filenamePrefix) {
       if (!rows || rows.length <= 1) {
-        alert("ยังไม่มีข้อมูลสำหรับบันทึกไฟล์ครับ");
+        alert("ยังไม่มีข้อมูลสำหรับบันทึกไฟล์");
         return;
       }
       const csvContent = "\uFEFF" + rows
