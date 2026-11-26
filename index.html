@@ -769,3 +769,46 @@
       if (!GAS_URL || GAS_URL === "YOUR_GAS_WEB_APP_URL") return;
       try {
         const queryUid = uidParam || lineUid || "";
+        const url = `${GAS_URL}?action=get_room_directory${queryUid ? `&uid=${encodeURIComponent(queryUid)}` : ""}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.status === "success" && Array.isArray(data.rooms) && data.rooms.length > 0) {
+          roomDirectory = data.rooms;
+          updateGradeDisplay();
+        }
+      } catch (e) {
+        // ใช้งานต่อได้ตามปกติแม้โหลดผังห้องไม่สำเร็จ
+      }
+    }
+
+    async function initApp() {
+      syncForgotPhotoVisibility();
+      updateSubmitButtonState();
+      await loadRoomDirectoryOnce();
+
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+        const profile = await liff.getProfile();
+        lineUid = profile.userId || "";
+        lineDisplayName = profile.displayName || "";
+        if (lineUid) {
+          await loadRoomDirectoryOnce(lineUid);
+        }
+      } catch (e) {
+        const params = new URLSearchParams(window.location.search);
+        const qUid = (params.get("uid") || "").trim();
+        if (qUid) {
+          lineUid = qUid;
+          await loadRoomDirectoryOnce(qUid);
+        }
+      }
+    }
+
+    initApp();
+  </script>
+</body>
+</html>
