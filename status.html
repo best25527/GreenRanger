@@ -372,136 +372,140 @@
     }
 
     function buildOverallSummaryReport(dateRows) {
-      const problemRows = dateRows.filter(isProblemRow);
+  try {
+    const problemRows = (dateRows || []).filter(isProblemRow);
+    const rangeLabel = getDateRangeLabel();
 
-      const rangeLabel = getDateRangeLabel();
-      currentSummaryExportRows = [
-        ["รายงานสรุปภาพรวมการตรวจอาคาร (ทุกตึก)", rangeLabel],
-        ["อาคาร", "จำนวนห้องที่มีปัญหาในตึก (ห้อง)", "อันดับในตึก", "เลขห้อง/ชื่อห้อง", "ชั้น/ประเภท", "ความถี่ที่มีปัญหา (ครั้ง/วัน)", "ปัญหาที่เคยพบ"]
-      ];
+    currentSummaryExportRows = [
+      ["รายงานสรุปภาพรวมการตรวจอาคาร (ทุกตึก)", rangeLabel],
+      ["อาคาร", "จำนวนห้องที่มีปัญหาในตึก (ห้อง)", "อันดับในตึก", "เลขห้อง/ชื่อห้อง", "ชั้น/ประเภท", "ความถี่ที่มีปัญหา (ครั้ง/วัน)", "ปัญหาที่เคยพบ"]
+    ];
 
-      if (!problemRows.length) {
-        return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาในทุกตึกครับ</div>`;
+    if (!problemRows.length) {
+      return `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาในทุกตึกครับ</div>`;
+    }
+
+    const buildingMap = {};
+    problemRows.forEach(r => {
+      const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
+      const b = String(r[2] || "ไม่ระบุอาคาร").trim();
+      const rawRoom = String(r[4] || "-").trim();
+      const roomKey = normalizeRoomKey(rawRoom);
+      const gradeVal = String(r[5] || "").trim();
+      const tokens = parseIssueTokens(r[6]);
+
+      if (!buildingMap[b]) buildingMap[b] = { rooms: {} };
+      if (!buildingMap[b].rooms[roomKey]) {
+        buildingMap[b].rooms[roomKey] = {
+          room: rawRoom,
+          grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
+          daySet: new Set(),
+          issuesSet: new Set()
+        };
       }
 
-      const buildingMap = {};
-      problemRows.forEach(r => {
-        const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
-        const b = String(r[2] || "ไม่ระบุอาคาร").trim();
-        const rawRoom = String(r[4] || "-").trim();
-        const roomKey = normalizeRoomKey(rawRoom);
-        const gradeVal = String(r[5] || "").trim();
-        const tokens = parseIssueTokens(r[6]);
+      buildingMap[b].rooms[roomKey].daySet.add(d);
+      tokens.forEach(t => {
+        const label = t.category === "OTHER" && t.otherDetail ? `อื่นๆ (${t.otherDetail})` : t.rawLabel;
+        buildingMap[b].rooms[roomKey].issuesSet.add(label);
+      });
+    });
 
-        if (!buildingMap[b]) buildingMap[b] = { rooms: {} };
-        if (!buildingMap[b].rooms[roomKey]) {
-          buildingMap[b].rooms[roomKey] = {
-            room: rawRoom,
-            grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
-            daySet: new Set(),
-            issuesSet: new Set()
-          };
-        }
+    const buildingNames = Object.keys(buildingMap).sort((a, b) => String(a).localeCompare(String(b), "th"));
+    let totalRoomsWithIssues = 0;
 
-        buildingMap[b].rooms[roomKey].daySet.add(d);
-        tokens.forEach(t => {
-          const label = t.category === "OTHER" && t.otherDetail ? `อื่นๆ (${t.otherDetail})` : t.rawLabel;
-          buildingMap[b].rooms[roomKey].issuesSet.add(label);
-        });
+    const buildingSummaries = buildingNames.map(b => {
+      const roomList = Object.values(buildingMap[b].rooms)
+        .map(item => ({
+          room: String(item.room || "-"),
+          grade: String(item.grade || "-"),
+          freq: item.daySet.size,
+          issues: Array.from(item.issuesSet).join(", ")
+        }))
+        .filter(item => item.freq > 0)
+        .sort((a, bItem) => (bItem.freq - a.freq) || String(a.room).localeCompare(String(bItem.room), "th"));
+
+      totalRoomsWithIssues += roomList.length;
+
+      roomList.forEach((rm, idx) => {
+        currentSummaryExportRows.push([
+          b,
+          roomList.length,
+          idx + 1,
+          rm.room,
+          rm.grade,
+          rm.freq,
+          rm.issues
+        ]);
       });
 
-      const buildingNames = Object.keys(buildingMap).sort((a, b) => a.localeCompare(b, "th"));
-      let totalRoomsWithIssues = 0;
+      return {
+        building: b,
+        roomCount: roomList.length,
+        rooms: roomList
+      };
+    });
 
-      const buildingSummaries = buildingNames.map(b => {
-        const roomList = Object.values(buildingMap[b].rooms)
-          .map(item => ({
-            room: item.room,
-            grade: item.grade,
-            freq: item.daySet.size,
-            issues: Array.from(item.issuesSet).join(", ")
-          }))
-          .filter(item => item.freq > 0)
-          .sort((a, bItem) => bItem.freq - aItem.freq || a.room.localeCompare(bItem.room, "th"));
-
-        totalRoomsWithIssues += roomList.length;
-
-        roomList.forEach((rm, idx) => {
-          currentSummaryExportRows.push([
-            b,
-            roomList.length,
-            idx + 1,
-            rm.room,
-            rm.grade,
-            rm.freq,
-            rm.issues
-          ]);
-        });
-
-        return {
-          building: b,
-          roomCount: roomList.length,
-          rooms: roomList
-        };
-      });
-
-      const overviewTableHtml = `
-        <div class="report-section-box">
-          <div style="font-size: 13px; font-weight: 700; color: #065f46; margin-bottom: 6px;">
-            สรุปภาพรวมทุกตึก (${rangeLabel}) — พบปัญหาทั้งหมด ${totalRoomsWithIssues} ห้อง จาก ${buildingSummaries.length} อาคาร
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>อาคาร</th>
-                <th>จำนวนห้องที่พบปัญหา (ห้อง)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${buildingSummaries.map(bs => `
-                <tr>
-                  <td><strong>${bs.building}</strong></td>
-                  <td><strong>${bs.roomCount}</strong> ห้อง</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
+    const overviewTableHtml = `
+      <div class="report-section-box">
+        <div style="font-size: 13px; font-weight: 700; color: #065f46; margin-bottom: 6px;">
+          สรุปภาพรวมทุกตึก (${rangeLabel}) — พบปัญหาทั้งหมด ${totalRoomsWithIssues} ห้อง จาก ${buildingSummaries.length} อาคาร
         </div>
-      `;
-
-      const drilldownHtml = buildingSummaries.map(bs => `
-        <div class="report-building-block">
-          <div class="report-building-header">
-            <span>${bs.building}</span>
-            <span class="badge-pill">พบปัญหา ${bs.roomCount} ห้อง</span>
-          </div>
-          <table>
-            <thead>
+        <table>
+          <thead>
+            <tr>
+              <th>อาคาร</th>
+              <th>จำนวนห้องที่พบปัญหา (ห้อง)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${buildingSummaries.map(bs => `
               <tr>
-                <th style="width: 56px;">อันดับ</th>
-                <th>ห้อง</th>
-                <th>ชั้น/ประเภท</th>
-                <th style="width: 120px;">มีปัญหา (ครั้ง)</th>
-                <th>ปัญหาที่พบ</th>
+                <td><strong>${bs.building}</strong></td>
+                <td><strong>${bs.roomCount}</strong> ห้อง</td>
               </tr>
-            </thead>
-            <tbody>
-              ${bs.rooms.map((rm, idx) => `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td><strong>${rm.room}</strong></td>
-                  <td>${rm.grade}</td>
-                  <td><strong>${rm.freq}</strong> ครั้ง</td>
-                  <td>${rm.issues}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-      `).join("");
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
 
-      return overviewTableHtml + drilldownHtml;
-    }
+    const drilldownHtml = buildingSummaries.map(bs => `
+      <div class="report-building-block">
+        <div class="report-building-header">
+          <span>${bs.building}</span>
+          <span class="badge-pill">พบปัญหา ${bs.roomCount} ห้อง</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 56px;">อันดับ</th>
+              <th>ห้อง</th>
+              <th>ชั้น/ประเภท</th>
+              <th style="width: 120px;">มีปัญหา (ครั้ง)</th>
+              <th>ปัญหาที่พบ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bs.rooms.map((rm, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td><strong>${rm.room}</strong></td>
+                <td>${rm.grade}</td>
+                <td><strong>${rm.freq}</strong> ครั้ง</td>
+                <td>${rm.issues}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `).join("");
+
+    return overviewTableHtml + drilldownHtml;
+  } catch (err) {
+    return `<div class="muted" style="color:#991b1b;">สร้างรายงานสรุปไม่สำเร็จ: ${err.message}</div>`;
+  }
+}
 
     function renderStatsAndView() {
       syncFilterControlsVisibility();
