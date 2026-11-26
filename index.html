@@ -227,7 +227,7 @@
   <div class="container">
     <!-- ส่วนที่ 1: วัน อาคาร และกลุ่ม (คงไว้เมื่อกดเพิ่มห้องถัดไป) -->
     <div class="card">
-      <h2 class="card-title">1. ข้อมูลรอบการตรวจ (คงไว้เมื่อเพิ่มห้อง)</h2>
+      <h2 class="card-title">1. ข้อมูลรอบการตรวจ </h2>
 
       <label for="inspectDate">วันที่ตรวจ</label>
       <input type="date" id="inspectDate" required />
@@ -257,14 +257,14 @@
       <h2 class="card-title">2. รายละเอียดห้องที่พบปัญหา</h2>
 
       <label for="roomInput">เลขห้อง / ชื่อห้อง</label>
-      <input type="text" id="roomInput" placeholder="เช่น 631, 422 หรือ ห้องพักครู" autocomplete="off" />
+      <input type="text" id="roomInput" placeholder="เช่น 301, 422 หรือ ห้องน้ำ" autocomplete="off" />
 
       <div id="gradeBox" class="grade-badge">
         <div class="grade-row">
           <span id="gradeText"></span>
           <label class="check-item" style="padding: 4px 8px; background: #fff;">
             <input type="checkbox" id="notClassroomCheck" />
-            <span>ไม่ใช่ห้องเรียน</span>
+            <span>ไม่ใช่ห้องเรียน (กดเมื่อกรณีไม่ใช้ห้องประจำ)</span>
           </label>
         </div>
       </div>
@@ -336,7 +336,7 @@
       </div>
 
       <label for="signerName">ลงชื่อยืนยันผู้ตรวจ</label>
-      <input type="text" id="signerName" placeholder="พิมพ์ชื่อ-นามสกุล หรือชื่อเล่นผู้ตรวจ" />
+      <input type="text" id="signerName" placeholder="พิมพ์ชื่อจริง-นามสกุล ผู้ตรวจ" />
 
       <button type="button" class="btn btn-submit" id="submitAllBtn" disabled>ยืนยันและส่งข้อมูลทั้งหมด</button>
       <div id="statusMsg"></div>
@@ -402,7 +402,7 @@
     allClearCb.addEventListener("change", () => {
       if (allClearCb.checked && queuedRooms.length > 0) {
         allClearCb.checked = false;
-        alert("ยังมีรายการห้องที่มีปัญหาอยู่ในรายการรอส่ง จึงกด 'ทุกห้องเรียบร้อยหมด' ไม่ได้ครับ");
+        alert("ยังมีรายการห้องที่มีปัญหาอยู่ในรายการรอส่ง จึงกด 'ทุกห้องเรียบร้อยหมด' ไม่ได้");
       }
       updateSubmitButtonState();
     });
