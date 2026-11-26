@@ -6,11 +6,15 @@
   <title>สถิติการตรวจอาคาร (Admin)</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     :root {
       --bg: #f3f6f4;
       --card: #ffffff;
       --primary: #15803d;
+      --primary-dark: #166534;
+      --accent: #0f766e;
       --border: #e5e7eb;
       --text: #111827;
       --muted: #6b7280;
@@ -23,7 +27,7 @@
       background: var(--bg);
       color: var(--text);
     }
-    .container { max-width: 760px; margin: 0 auto 40px; }
+    .container { max-width: 820px; margin: 0 auto 40px; }
     .card {
       background: var(--card);
       border-radius: 14px;
@@ -32,10 +36,18 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
       border: 1px solid var(--border);
     }
-    .card-title { font-size: 16px; font-weight: 700; margin: 0 0 12px; color: var(--primary); }
+    .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .card-title { font-size: 16px; font-weight: 700; margin: 0; color: var(--primary); }
     .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
     label { display: block; font-size: 13px; font-weight: 600; margin-top: 8px; margin-bottom: 4px; }
-    select, input[type="date"], button {
+    select, input[type="date"], .btn-main {
       width: 100%;
       padding: 9px 10px;
       border-radius: 10px;
@@ -43,7 +55,7 @@
       font-size: 14px;
       background: #fff;
     }
-    button {
+    .btn-main {
       background: var(--primary);
       color: #fff;
       border: none;
@@ -51,9 +63,32 @@
       margin-top: 12px;
       cursor: pointer;
     }
+    .btn-group-inline {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .btn-save {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-save:hover {
+      background: #e2e8f0;
+    }
+    .btn-save-primary {
+      background: #ecfdf5;
+      border-color: #86efac;
+      color: #166534;
+    }
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 10px;
       margin-top: 10px;
     }
@@ -79,6 +114,45 @@
       font-size: 13px;
       font-weight: 600;
     }
+    .report-section-box {
+      border: 1px solid #d1fae5;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .report-building-block {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-top: 10px;
+    }
+    .report-building-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--primary-dark);
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+    .badge-pill {
+      background: #dcfce7;
+      color: #166534;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .chart-wrap {
+      position: relative;
+      background: #fff;
+      padding: 10px;
+      border-radius: 10px;
+    }
   </style>
 </head>
 <body>
@@ -88,8 +162,11 @@
     </div>
 
     <div id="adminDashboard" style="display: none;">
+      <!-- การ์ดตัวกรอง -->
       <div class="card">
-        <h2 class="card-title">ตัวกรองและรูปแบบการแสดงสถิติ (Admin)</h2>
+        <div class="card-header-row">
+          <h2 class="card-title">ตัวกรองและรูปแบบการแสดงสถิติ (Admin)</h2>
+        </div>
 
         <div class="grid-2">
           <div>
@@ -98,6 +175,14 @@
               <option value="table">ตาราง (Table)</option>
               <option value="pie">แผนภูมิวงกลม (Pie Chart)</option>
               <option value="bar">แผนภูมิแท่ง (Bar Chart)</option>
+            </select>
+          </div>
+
+          <div id="chartUnitWrap" style="display: none;">
+            <label for="chartUnitMode">ตัวเลขบนกราฟ / แผนภูมิ</label>
+            <select id="chartUnitMode">
+              <option value="count">ความถี่ / จำนวน (ตัวเลข)</option>
+              <option value="percent">เปอร์เซ็นต์ (%)</option>
             </select>
           </div>
 
@@ -126,7 +211,7 @@
           <div id="singleBuildingFocusWrap" style="display: none;">
             <label for="issueFocusFilter">โฟกัสปัญหา</label>
             <select id="issueFocusFilter">
-              <option value="ALL_OVERVIEW">ภาพรวมตึก (ห้องมีปัญหานับเป็น 1)</option>
+              <option value="ALL_OVERVIEW">ภาพรวมตึก (วันนั้นหลายปัญหานับเป็น 1)</option>
               <option value="LIGHT">ไฟ (ไม่ปิดไฟ)</option>
               <option value="AC">แอร์ (ไม่ปิดเครื่องปรับอากาศ)</option>
               <option value="FAN">พัดลม (ไม่ปิดพัดลม)</option>
@@ -147,18 +232,43 @@
         </div>
 
         <div id="contextHint" class="hint-bar"></div>
-        <button type="button" id="applyFilterBtn">อัปเดตสถิติ</button>
+        <button type="button" class="btn-main" id="applyFilterBtn">อัปเดตสถิติ</button>
       </div>
 
+      <!-- การ์ดค่ากลางทางสถิติ -->
       <div class="card">
-        <h2 class="card-title">ค่ากลางทางสถิติ (ต่อวัน)</h2>
+        <div class="card-header-row">
+          <h2 class="card-title">ค่ากลางทางสถิติ (ต่อวัน)</h2>
+        </div>
         <div class="stats-grid" id="centralTendencyBox"></div>
       </div>
 
-      <div class="card">
-        <h2 id="viewCardTitle" class="card-title">การแสดงผลข้อมูล</h2>
+      <!-- การ์ดตาราง / กราฟ ที่สนใจ พร้อมปุ่ม Save -->
+      <div class="card" id="mainViewCard">
+        <div class="card-header-row">
+          <h2 id="viewCardTitle" class="card-title">การแสดงผลข้อมูล</h2>
+          <div class="btn-group-inline">
+            <button type="button" class="btn-save btn-save-primary" id="saveViewImageBtn">Save รูปภาพ (PNG)</button>
+            <button type="button" class="btn-save" id="saveViewCsvBtn">Save ไฟล์ตาราง (CSV)</button>
+          </div>
+        </div>
+
         <div id="tableView"></div>
-        <canvas id="chartCanvas" style="display: none; max-height: 360px;"></canvas>
+        <div id="chartWrap" class="chart-wrap" style="display: none;">
+          <canvas id="chartCanvas" style="max-height: 380px;"></canvas>
+        </div>
+      </div>
+
+      <!-- การ์ดรายงานสรุปโดยรวมตลอดช่วงเวลาที่เลือก พร้อมปุ่ม Save -->
+      <div class="card" id="summaryReportCard">
+        <div class="card-header-row">
+          <h2 class="card-title">รายงานสรุปภาพรวมตลอดช่วงเวลาที่เลือก</h2>
+          <div class="btn-group-inline">
+            <button type="button" class="btn-save btn-save-primary" id="saveReportImageBtn">Save รายงานเป็นรูป (PNG)</button>
+            <button type="button" class="btn-save" id="saveReportCsvBtn">Save รายงานเป็นไฟล์ (CSV)</button>
+          </div>
+        </div>
+        <div id="summaryReportContent"></div>
       </div>
     </div>
   </div>
@@ -166,6 +276,10 @@
   <script>
     const LIFF_ID = "2012781938-SGvi6d7Y";
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_cZnCMzebyoaPd7BwyyrliX52wOBU2pyEJ7R0VTgzbne6jAh24dRYREu0V9KSMU_4/exec";
+
+    if (window.ChartDataLabels) {
+      Chart.register(ChartDataLabels);
+    }
 
     const FOCUS_LABELS = {
       ALL_OVERVIEW: "ภาพรวมตึก",
@@ -178,7 +292,12 @@
 
     let rawRows = [];
     let chartInstance = null;
+    let currentViewExportRows = [];
+    let currentSummaryExportRows = [];
 
+    const displayModeEl = document.getElementById("displayMode");
+    const chartUnitWrapEl = document.getElementById("chartUnitWrap");
+    const chartUnitModeEl = document.getElementById("chartUnitMode");
     const buildingFilterEl = document.getElementById("buildingFilter");
     const allBuildingsMetricWrap = document.getElementById("allBuildingsMetricWrap");
     const allBuildingsMetricEl = document.getElementById("allBuildingsMetric");
@@ -188,8 +307,11 @@
 
     function syncFilterControlsVisibility() {
       const isAllBuildings = buildingFilterEl.value === "ALL";
+      const isChart = displayModeEl.value !== "table";
+
       allBuildingsMetricWrap.style.display = isAllBuildings ? "block" : "none";
       singleBuildingFocusWrap.style.display = isAllBuildings ? "none" : "block";
+      chartUnitWrapEl.style.display = isChart ? "block" : "none";
     }
 
     function normalizeRoomKey(roomVal) {
@@ -204,7 +326,6 @@
       return true;
     }
 
-    // แยกปัญหาแต่ละชิ้นในแถว ออกเป็น { category: "LIGHT"|"AC"|"FAN"|"TV"|"OTHER", rawLabel: string, otherDetail: string }
     function parseIssueTokens(issuesText) {
       const text = String(issuesText || "").trim();
       if (!text || text === "ทุกห้องเรียบร้อยหมด") return [];
@@ -226,8 +347,6 @@
           if (token.includes("ทีวี") || token.includes("โปรเจคเตอร์")) {
             return { category: "TV", rawLabel: token, otherDetail: "" };
           }
-
-          // หมวด "อื่นๆ"
           const detail = token.replace(/^อื่นๆ\s*:?\s*/i, "").trim();
           return {
             category: "OTHER",
@@ -276,14 +395,165 @@
       });
     }
 
+    function getDateRangeLabel() {
+      const s = document.getElementById("startDate").value;
+      const e = document.getElementById("endDate").value;
+      if (s && e) return `ช่วงวันที่ ${s} ถึง ${e}`;
+      if (s) return `ตั้งแต่วันที่ ${s}`;
+      if (e) return `ถึงวันที่ ${e}`;
+      return "ตลอดช่วงเวลาทั้งหมดในระบบ";
+    }
+
+    // สร้างรายงานสรุปภาพรวมตลอดช่วงเวลาที่เลือก (รายตึกกี่ห้อง + เจาะลึกรายห้องเรียงอันดับ)
+    function renderOverallSummaryReport(dateRows) {
+      const problemRows = dateRows.filter(isProblemRow);
+      const reportContainer = document.getElementById("summaryReportContent");
+      const rangeLabel = getDateRangeLabel();
+
+      currentSummaryExportRows = [
+        ["รายงานสรุปภาพรวมการตรวจอาคาร", rangeLabel],
+        ["อาคาร", "จำนวนห้องที่มีปัญหาในตึก (ห้อง)", "อันดับในตึก", "เลขห้อง/ชื่อห้อง", "ชั้น/ประเภท", "ความถี่ที่มีปัญหา (ครั้ง/วัน)", "ปัญหาที่เคยพบ"]
+      ];
+
+      if (problemRows.length === 0) {
+        reportContainer.innerHTML = `<div class="muted">${rangeLabel}: ไม่พบข้อมูลห้องที่มีปัญหาครับ</div>`;
+        return;
+      }
+
+      // โครงสร้างสรุปรายตึก: buildingMap[building] = { rooms: { roomKey: { room, grade, daySet, rawEventCount, issuesSet } } }
+      const buildingMap = {};
+      problemRows.forEach(r => {
+        const d = String(r[1] || "ไม่ระบุวันที่").slice(0, 10);
+        const b = String(r[2] || "ไม่ระบุอาคาร").trim();
+        const rawRoom = String(r[4] || "-").trim();
+        const roomKey = normalizeRoomKey(rawRoom);
+        const gradeVal = String(r[5] || "").trim();
+        const tokens = parseIssueTokens(r[6]);
+
+        if (!buildingMap[b]) buildingMap[b] = { rooms: {} };
+        if (!buildingMap[b].rooms[roomKey]) {
+          buildingMap[b].rooms[roomKey] = {
+            room: rawRoom,
+            grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
+            daySet: new Set(),
+            issuesSet: new Set()
+          };
+        }
+
+        // ถ้าวันนั้นมีหลายปัญหา นับเป็น 1 ครั้งต่อวันสำหรับห้องนั้น
+        buildingMap[b].rooms[roomKey].daySet.add(d);
+        tokens.forEach(t => {
+          const label = t.category === "OTHER" && t.otherDetail ? `อื่นๆ (${t.otherDetail})` : t.rawLabel;
+          buildingMap[b].rooms[roomKey].issuesSet.add(label);
+        });
+      });
+
+      const buildingNames = Object.keys(buildingMap).sort();
+      let totalRoomsWithIssues = 0;
+
+      const buildingSummaries = buildingNames.map(b => {
+        const roomList = Object.values(buildingMap[b].rooms)
+          .map(item => ({
+            room: item.room,
+            grade: item.grade,
+            freq: item.daySet.size,
+            issues: Array.from(item.issuesSet).join(", ")
+          }))
+          .filter(item => item.freq > 0)
+          .sort((a, bItem) => bItem.freq - aItem.freq || a.room.localeCompare(bItem.room, "th"));
+
+        totalRoomsWithIssues += roomList.length;
+
+        roomList.forEach((rm, idx) => {
+          currentSummaryExportRows.push([
+            b,
+            roomList.length,
+            idx + 1,
+            rm.room,
+            rm.grade,
+            rm.freq,
+            rm.issues
+          ]);
+        });
+
+        return {
+          building: b,
+          roomCount: roomList.length,
+          rooms: roomList
+        };
+      });
+
+      const overviewTableHtml = `
+        <div class="report-section-box">
+          <div style="font-size: 13px; font-weight: 700; color: #065f46; margin-bottom: 6px;">
+            สรุปภาพรวม (${rangeLabel}) — พบปัญหาทั้งหมด ${totalRoomsWithIssues} ห้อง จาก ${buildingSummaries.length} อาคาร
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>อาคาร</th>
+                <th>จำนวนห้องที่พบปัญหา (ห้อง)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${buildingSummaries.map(bs => `
+                <tr>
+                  <td><strong>${bs.building}</strong></td>
+                  <td><strong>${bs.roomCount}</strong> ห้อง</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      const drilldownHtml = buildingSummaries.map(bs => `
+        <div class="report-building-block">
+          <div class="report-building-header">
+            <span>${bs.building}</span>
+            <span class="badge-pill">พบปัญหา ${bs.roomCount} ห้อง</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 56px;">อันดับ</th>
+                <th>ห้อง</th>
+                <th>ชั้น/ประเภท</th>
+                <th style="width: 120px;">มีปัญหา (ครั้ง)</th>
+                <th>ปัญหาที่พบ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${bs.rooms.map((rm, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td><strong>${rm.room}</strong></td>
+                  <td>${rm.grade}</td>
+                  <td><strong>${rm.freq}</strong> ครั้ง</td>
+                  <td>${rm.issues}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `).join("");
+
+      reportContainer.innerHTML = overviewTableHtml + drilldownHtml;
+    }
+
     function renderStatsAndView() {
       syncFilterControlsVisibility();
 
-      const mode = document.getElementById("displayMode").value;
+      const mode = displayModeEl.value;
+      const chartUnit = chartUnitModeEl.value;
       const selectedBuilding = buildingFilterEl.value;
       const dateRows = getDateFilteredRows();
 
+      // อัปเดตรายงานสรุปภาพรวมตลอดช่วงเวลาที่เลือกเสมอ
+      renderOverallSummaryReport(dateRows);
+
       const tableDiv = document.getElementById("tableView");
+      const chartWrap = document.getElementById("chartWrap");
       const canvas = document.getElementById("chartCanvas");
       const viewCardTitle = document.getElementById("viewCardTitle");
 
@@ -338,6 +608,11 @@
             building: b,
             countVal: values[i]
           }));
+
+          currentViewExportRows = [
+            ["ลำดับ", "อาคาร", "จำนวนห้องที่มีปัญหา (ห้อง)"],
+            ...rowsForTable.map(r => [r.rank, r.building, r.countVal])
+          ];
         } else {
           contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แสดงความถี่ / รายการปัญหาที่บันทึกในแต่ละตึก";
           mainMetricLabel = "จำนวนรายการ/ความถี่ปัญหา";
@@ -352,6 +627,11 @@
             building: b,
             countVal: values[i]
           }));
+
+          currentViewExportRows = [
+            ["ลำดับ", "อาคาร", "ความถี่ / จำนวนรายการปัญหา"],
+            ...rowsForTable.map(r => [r.rank, r.building, r.countVal])
+          ];
         }
       } else {
         // พิจารณารายตึก (เลือกอาคารเฉพาะ)
@@ -383,13 +663,18 @@
             roomStats[roomKey] = {
               room: rawRoom,
               grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
-              frequency: 0,
+              countedDays: new Set(),
+              specificIssueFreq: 0,
               issuesSet: new Set(),
               otherDetailsSet: new Set()
             };
           }
 
-          roomStats[roomKey].frequency += matchingTokens.length;
+          // ถ้าดูภาพรวมตึก: วันนั้นมี 3 ปัญหาก็นับเป็น 1 ครั้ง (นับตามวันที่พบปัญหาของห้องนั้น)
+          // ถ้าโฟกัสปัญหาเฉพาะ: นับตามจำนวนครั้งที่พบปัญหานั้น
+          roomStats[roomKey].countedDays.add(d);
+          roomStats[roomKey].specificIssueFreq += matchingTokens.length;
+
           matchingTokens.forEach(t => {
             roomStats[roomKey].issuesSet.add(t.rawLabel);
             if (t.category === "OTHER" && t.otherDetail) {
@@ -401,11 +686,17 @@
           uniqueRoomsByDate[d].add(roomKey);
         });
 
-        const sortedRooms = Object.values(roomStats).sort((a, b) => b.frequency - a.frequency);
+        const sortedRooms = Object.values(roomStats)
+          .map(item => ({
+            ...item,
+            finalFrequency: focusKey === "ALL_OVERVIEW" ? item.countedDays.size : item.specificIssueFreq
+          }))
+          .filter(item => item.finalFrequency > 0)
+          .sort((a, b) => b.finalFrequency - a.finalFrequency || a.room.localeCompare(b.room, "th"));
 
         if (focusKey === "ALL_OVERVIEW") {
-          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — ห้องที่มีปัญหานับเป็น 1 ห้อง และแสดงความถี่ของแต่ละห้อง`;
-          mainMetricLabel = "ความถี่ของห้องที่มีปัญหา (ครั้ง)";
+          contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — วันนั้นมีหลายปัญหาก็นับเป็น 1 ครั้ง และเรียงอันดับห้องที่พบปัญหา`;
+          mainMetricLabel = "ความถี่ที่พบปัญหา (ครั้ง)";
           viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
         } else if (focusKey === "OTHER") {
           contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — โฟกัสปัญหา "อื่นๆ" (กราฟรวมเป็น "อื่นๆ" และตารางระบุรายละเอียดด้วยว่าคืออะไร)`;
@@ -418,7 +709,7 @@
         }
 
         labels = sortedRooms.map(item => `ห้อง ${item.room}`);
-        values = sortedRooms.map(item => item.frequency);
+        values = sortedRooms.map(item => item.finalFrequency);
         dailySeries = Object.values(uniqueRoomsByDate).map(setObj => setObj.size);
 
         rowsForTable = sortedRooms.map((item, idx) => ({
@@ -426,10 +717,21 @@
           room: item.room,
           grade: item.grade,
           roomAsOne: 1,
-          frequency: item.frequency,
+          frequency: item.finalFrequency,
           issuesList: Array.from(item.issuesSet).join(", "),
           otherSpecify: Array.from(item.otherDetailsSet).join(", ") || "-"
         }));
+
+        const isOtherFocus = focusKey === "OTHER";
+        currentViewExportRows = [
+          isOtherFocus
+            ? ["ลำดับ", "ห้อง", "ชั้น/ประเภท", "นับห้อง (ห้องละ 1)", "ความถี่ที่พบ (ครั้ง)", "ปัญหาที่พบ", "ระบุว่าคืออะไร (อื่นๆ)"]
+            : ["ลำดับ", "ห้อง", "ชั้น/ประเภท", "นับห้อง (ห้องละ 1)", "ความถี่ที่พบ (ครั้ง)", "ปัญหาที่พบ"],
+          ...rowsForTable.map(r => isOtherFocus
+            ? [r.rank, r.room, r.grade, r.roomAsOne, r.frequency, r.issuesList, r.otherSpecify]
+            : [r.rank, r.room, r.grade, r.roomAsOne, r.frequency, r.issuesList]
+          )
+        ];
       }
 
       const totalCountDisplay = selectedBuilding === "ALL"
@@ -462,7 +764,7 @@
       `;
 
       if (mode === "table") {
-        canvas.style.display = "none";
+        chartWrap.style.display = "none";
         tableDiv.style.display = "block";
 
         if (rowsForTable.length === 0) {
@@ -528,12 +830,13 @@
         }
       } else {
         tableDiv.style.display = "none";
-        canvas.style.display = "block";
+        chartWrap.style.display = "block";
 
-        // ถ้าโฟกัสเป็น "อื่นๆ" บนกราฟแท่งหรือวงกลม ให้ชื่อชุดข้อมูล/ป้ายกำกับเป็น "อื่นๆ" ชัดเจน
         const chartDatasetLabel = (selectedBuilding !== "ALL" && issueFocusFilterEl.value === "OTHER")
           ? "อื่นๆ"
           : mainMetricLabel;
+
+        const sumValues = values.reduce((a, b) => a + b, 0);
 
         if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(canvas.getContext("2d"), {
@@ -551,12 +854,88 @@
           },
           options: {
             responsive: true,
-            plugins: { legend: { position: "bottom" } }
+            layout: {
+              padding: { top: 24, right: 16, left: 16, bottom: 8 }
+            },
+            plugins: {
+              legend: { position: "bottom" },
+              tooltip: {
+                callbacks: {
+                  label: function(ctx) {
+                    const val = Number(ctx.raw || 0);
+                    const pct = sumValues > 0 ? ((val / sumValues) * 100).toFixed(1) : "0.0";
+                    return `${ctx.label}: ${val} (${pct}%)`;
+                  }
+                }
+              },
+              datalabels: {
+                color: mode === "pie" ? "#ffffff" : "#111827",
+                font: { weight: "bold", size: 12 },
+                anchor: mode === "pie" ? "center" : "end",
+                align: mode === "pie" ? "center" : "top",
+                formatter: function(value) {
+                  const val = Number(value || 0);
+                  if (val === 0) return "0";
+                  if (chartUnit === "percent") {
+                    const pct = sumValues > 0 ? ((val / sumValues) * 100).toFixed(1) : "0.0";
+                    return `${pct}%`;
+                  }
+                  return `${val}`;
+                }
+              }
+            }
           }
         });
       }
     }
 
+    // ฟังก์ชันดาวน์โหลดรูปภาพ PNG จาก Element หรือ Canvas
+    async function saveElementAsPng(elementId, filenamePrefix) {
+      const targetEl = document.getElementById(elementId);
+      if (!targetEl) return;
+
+      // หากอยู่ในโหมดกราฟและกดเซฟการ์ดหลัก สามารถเซฟรูป canvas ตรงๆ หรือทั้งการ์ดได้
+      try {
+        const renderedCanvas = await html2canvas(targetEl, {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          useCORS: true
+        });
+        const link = document.createElement("a");
+        const stamp = new Date().toISOString().slice(0, 10);
+        link.download = `${filenamePrefix}_${stamp}.png`;
+        link.href = renderedCanvas.toDataURL("image/png");
+        link.click();
+      } catch (err) {
+        alert("ไม่สามารถบันทึกรูปภาพได้ในเบราว์เซอร์นี้ ลองแคปหน้าจอแทนครับ");
+      }
+    }
+
+    // ฟังก์ชันดาวน์โหลดไฟล์ CSV (รองรับภาษาไทยใน Excel ด้วย UTF-8 BOM)
+    function saveRowsAsCsv(rows, filenamePrefix) {
+      if (!rows || rows.length <= 1) {
+        alert("ยังไม่มีข้อมูลสำหรับบันทึกไฟล์ครับ");
+        return;
+      }
+      const csvContent = "\uFEFF" + rows
+        .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+        .join("\r\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `${filenamePrefix}_${stamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    displayModeEl.addEventListener("change", () => {
+      syncFilterControlsVisibility();
+      renderStatsAndView();
+    });
+    chartUnitModeEl.addEventListener("change", renderStatsAndView);
     buildingFilterEl.addEventListener("change", () => {
       syncFilterControlsVisibility();
       renderStatsAndView();
@@ -564,6 +943,19 @@
     allBuildingsMetricEl.addEventListener("change", renderStatsAndView);
     issueFocusFilterEl.addEventListener("change", renderStatsAndView);
     document.getElementById("applyFilterBtn").addEventListener("click", renderStatsAndView);
+
+    document.getElementById("saveViewImageBtn").addEventListener("click", () => {
+      saveElementAsPng("mainViewCard", "สถิติการตรวจอาคาร");
+    });
+    document.getElementById("saveViewCsvBtn").addEventListener("click", () => {
+      saveRowsAsCsv(currentViewExportRows, "สถิติการตรวจอาคาร");
+    });
+    document.getElementById("saveReportImageBtn").addEventListener("click", () => {
+      saveElementAsPng("summaryReportCard", "รายงานสรุปการตรวจอาคาร");
+    });
+    document.getElementById("saveReportCsvBtn").addEventListener("click", () => {
+      saveRowsAsCsv(currentSummaryExportRows, "รายงานสรุปการตรวจอาคาร");
+    });
 
     async function initAdminStatus() {
       let uid = "";
