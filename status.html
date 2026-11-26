@@ -85,7 +85,7 @@
     }
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 10px;
       margin-top: 10px;
     }
@@ -233,12 +233,12 @@
         <button type="button" class="btn-main" id="applyFilterBtn">อัปเดตสถิติ</button>
       </div>
 
-      <!-- การ์ดค่ากลางทางสถิติ -->
+      <!-- การ์ดยอดรวมสรุป -->
       <div class="card">
         <div class="card-header-row">
-          <h2 class="card-title">ค่ากลางทางสถิติ (ต่อวัน)</h2>
+          <h2 class="card-title">สรุปจำนวนตามเงื่อนไข</h2>
         </div>
-        <div class="stats-grid" id="centralTendencyBox"></div>
+        <div class="stats-grid" id="overviewSummaryBox"></div>
       </div>
 
       <!-- การ์ดแสดงผลหลัก (ตาราง / กราฟ / รายงานสรุป) พร้อมปุ่ม Save -->
@@ -362,33 +362,6 @@
             otherDetail: detail || token
           };
         });
-    }
-
-    function calcMean(arr) {
-      if (!arr.length) return 0;
-      const sum = arr.reduce((a, b) => a + b, 0);
-      return Number((sum / arr.length).toFixed(2));
-    }
-
-    function calcMedian(arr) {
-      if (!arr.length) return 0;
-      const sorted = [...arr].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      return sorted.length % 2 !== 0
-        ? sorted[mid]
-        : Number(((sorted[mid - 1] + sorted[mid]) / 2).toFixed(2));
-    }
-
-    function calcMode(arr) {
-      if (!arr.length) return "-";
-      const freq = {};
-      let maxCount = 0;
-      for (const n of arr) {
-        freq[n] = (freq[n] || 0) + 1;
-        if (freq[n] > maxCount) maxCount = freq[n];
-      }
-      const modes = Object.keys(freq).filter(k => freq[k] === maxCount);
-      return `${modes.join(", ")} (${maxCount} วัน)`;
     }
 
     function getDateFilteredRows() {
@@ -563,7 +536,6 @@
 
       let labels = [];
       let values = [];
-      let dailySeries = [];
       let mainMetricLabel = "";
       let rowsForTable = [];
 
@@ -571,26 +543,17 @@
         const metricMode = allBuildingsMetricEl.value;
         const problemRows = dateRows.filter(isProblemRow);
 
-        const buildingSetByDate = {};
         const buildingCountMap = {};
         const uniqueRoomsByBuilding = {};
 
         problemRows.forEach(r => {
-          const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
           const b = String(r[2] || "ไม่ระบุอาคาร").trim();
           const roomKey = normalizeRoomKey(r[4]);
 
           if (!uniqueRoomsByBuilding[b]) uniqueRoomsByBuilding[b] = new Set();
           uniqueRoomsByBuilding[b].add(roomKey);
 
-          if (metricMode === "problem_rooms") {
-            if (!buildingSetByDate[d]) buildingSetByDate[d] = new Set();
-            buildingSetByDate[d].add(`${b}__${roomKey}`);
-          } else {
-            buildingCountMap[b] = (buildingCountMap[b] || 0) + 1;
-            buildingSetByDate[d] = buildingSetByDate[d] || [];
-            buildingSetByDate[d].push(1);
-          }
+          buildingCountMap[b] = (buildingCountMap[b] || 0) + 1;
         });
 
         const allBuildingsList = Array.from(new Set([
@@ -607,7 +570,6 @@
 
           labels = allBuildingsList;
           values = allBuildingsList.map(b => (uniqueRoomsByBuilding[b] ? uniqueRoomsByBuilding[b].size : 0));
-          dailySeries = Object.values(buildingSetByDate).map(setObj => setObj.size);
 
           rowsForTable = allBuildingsList.map((b, i) => ({
             rank: i + 1,
@@ -628,7 +590,6 @@
 
           labels = allBuildingsList;
           values = allBuildingsList.map(b => buildingCountMap[b] || 0);
-          dailySeries = Object.values(buildingSetByDate).map(arr => arr.length);
 
           rowsForTable = allBuildingsList.map((b, i) => ({
             rank: i + 1,
@@ -651,7 +612,6 @@
         });
 
         const roomStats = {};
-        const uniqueRoomsByDate = {};
 
         buildingRows.forEach(r => {
           const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
@@ -686,9 +646,6 @@
               roomStats[roomKey].otherDetailsSet.add(t.otherDetail);
             }
           });
-
-          if (!uniqueRoomsByDate[d]) uniqueRoomsByDate[d] = new Set();
-          uniqueRoomsByDate[d].add(roomKey);
         });
 
         const sortedRooms = Object.values(roomStats)
@@ -721,7 +678,6 @@
 
         labels = sortedRooms.map(item => `ห้อง ${item.room}`);
         values = sortedRooms.map(item => item.finalFrequency);
-        dailySeries = Object.values(uniqueRoomsByDate).map(setObj => setObj.size);
 
         rowsForTable = sortedRooms.map((item, idx) => ({
           rank: idx + 1,
@@ -755,22 +711,14 @@
             ? "จำนวนห้องที่มีปัญหาในตึก"
             : `จำนวนห้องที่พบปัญหา "${FOCUS_LABELS[issueFocusFilterEl.value]}"`);
 
-      document.getElementById("centralTendencyBox").innerHTML = `
+      document.getElementById("overviewSummaryBox").innerHTML = `
         <div class="stat-box">
           <div class="stat-label">${totalLabelDisplay}</div>
           <div class="stat-val">${totalCountDisplay}</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">ค่าเฉลี่ย (Mean / วัน)</div>
-          <div class="stat-val">${calcMean(dailySeries)}</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">มัธยฐาน (Median / วัน)</div>
-          <div class="stat-val">${calcMedian(dailySeries)}</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">ฐานนิยม (Mode / วัน)</div>
-          <div class="stat-val" style="font-size:14px;">${calcMode(dailySeries)}</div>
+          <div class="stat-label">ช่วงเวลาที่แสดง</div>
+          <div class="stat-val" style="font-size:14px;">${getDateRangeLabel()}</div>
         </div>
       `;
 
