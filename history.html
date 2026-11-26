@@ -187,28 +187,24 @@
     </div>
 
     <div id="historyContent" style="display: none;">
-      <!-- การ์ดทักทาย + ปุ่มมุมขวา (admin) -->
       <div class="card">
         <div class="top-header-row">
           <div>
             <h1 id="greetingText" class="greeting-title">สวัสดีครับ</h1>
             <div id="userMetaText" class="sub-uid"></div>
           </div>
-          <a id="adminStatusBtn" href="status.html" class="btn-admin-link" style="display: none;">
+          <a id="adminStatusBtn" class="btn-admin-link" style="display: none;">
             สถิติ (admin) ›
           </a>
         </div>
       </div>
 
-      <!-- การ์ดประวัติการมา (สถิติ ลา/ขาด/สาย เล็กๆ ข้างบน + แยกตามรายเดือนแบบเลื่อนลง) -->
       <div class="card">
         <h2 class="section-title">ประวัติการมา</h2>
-
         <div id="attendanceStatsStrip" class="att-summary-strip"></div>
         <div id="attendanceByMonthContainer"></div>
       </div>
 
-      <!-- การ์ดประวัติการตรวจอาคาร -->
       <div class="card">
         <h2 class="section-title">ประวัติการตรวจอาคารของฉัน</h2>
         <div id="inspectionHistoryContainer"></div>
@@ -315,7 +311,6 @@
         });
       });
 
-      // เรียงเดือนล่าสุดขึ้นก่อน
       const sortedMonths = Object.keys(monthGroups).sort((a, b) => b.localeCompare(a));
 
       monthContainerEl.innerHTML = sortedMonths.map((mKey, index) => {
@@ -418,19 +413,30 @@
 
       let uid = "";
       let lineDisplayName = "";
+      let liffErrorMsg = "";
 
       try {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
-          liff.login();
+          liff.login({ redirectUri: window.location.href });
           return;
         }
         const profile = await liff.getProfile();
-        uid = profile.userId || "";
-        lineDisplayName = profile.displayName || "";
+        uid = (profile && profile.userId) ? String(profile.userId).trim() : "";
+        lineDisplayName = (profile && profile.displayName) ? String(profile.displayName).trim() : "";
       } catch (e) {
+        liffErrorMsg = (e && (e.message || e.code)) ? `${e.code || ""} ${e.message || e}`.trim() : String(e);
         const params = new URLSearchParams(window.location.search);
-        uid = params.get("uid") || "";
+        uid = (params.get("uid") || "").trim();
+      }
+
+      if (!uid) {
+        loadingCard.style.display = "none";
+        deniedCard.style.display = "block";
+        document.getElementById("deniedUidText").textContent = liffErrorMsg
+          ? `ไม่พบ UID ผู้ใช้งาน (${liffErrorMsg})`
+          : "ไม่พบ UID ผู้ใช้งาน";
+        return;
       }
 
       try {
@@ -441,25 +447,27 @@
 
         if (!data || !data.authorized) {
           deniedCard.style.display = "block";
-          document.getElementById("deniedUidText").textContent = uid ? `UID: ${uid}` : "ไม่พบ UID ผู้ใช้งาน";
+          document.getElementById("deniedUidText").textContent = `UID: ${uid}`;
           return;
         }
 
-        // ใช้ชื่อจากชีตที่ผูกกับ uid เป็นหลัก ไม่ใช้ชื่อไลน์
         const sheetName = String(data.name || data.sheetName || "").trim();
-        const displayName = sheetName || (data.inspectionLogs && data.inspectionLogs[0] && String(data.inspectionLogs[0][8] || "").trim()) || lineDisplayName || "ผู้ใช้งาน";
+        const displayName =
+          sheetName ||
+          (data.inspectionLogs && data.inspectionLogs[0] && String(data.inspectionLogs[0][8] || "").trim()) ||
+          lineDisplayName ||
+          "ผู้ใช้งาน";
 
         document.getElementById("greetingText").textContent = `สวัสดีครับ คุณ${displayName}`;
-        const roleLabel = data.role ? `สิทธิ์: ${data.role}` : "";
-        document.getElementById("userMetaText").textContent = roleLabel;
+        document.getElementById("userMetaText").textContent = data.role ? `สิทธิ์: ${data.role}` : "";
 
-        // แสดงปุ่มมุมขวา (admin) เฉพาะผู้ที่เป็น Admin
         const adminBtn = document.getElementById("adminStatusBtn");
         const isAdmin = String(data.role || "").trim().toLowerCase() === "admin";
         if (isAdmin) {
-          adminBtn.href = uid ? `${STATUS_PAGE_URL}?uid=${encodeURIComponent(uid)}` : STATUS_PAGE_URL;
+          adminBtn.href = `${STATUS_PAGE_URL}?uid=${encodeURIComponent(uid)}`;
           adminBtn.style.display = "inline-flex";
         } else {
+          adminBtn.removeAttribute("href");
           adminBtn.style.display = "none";
         }
 
