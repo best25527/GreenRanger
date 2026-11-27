@@ -80,6 +80,51 @@
       padding: 8px 12px;
       cursor: pointer;
     }
+    .btn-action-sm {
+      padding: 6px 11px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #f9fafb;
+      color: #111827;
+    }
+    .btn-copy-img {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      color: #1d4ed8;
+    }
+    .btn-save-img {
+      background: #ecfdf5;
+      border-color: #86efac;
+      color: #166534;
+    }
+    .btn-confirm-dl {
+      background: #15803d;
+      border-color: #15803d;
+      color: #fff;
+    }
+    .chart-toolbar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .confirm-download-bar {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
     .processing-banner {
       padding: 10px 14px;
       border-radius: 10px;
@@ -130,11 +175,19 @@
       border-radius: 12px;
       padding: 12px;
     }
+    .sub-chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
     .sub-chart-title {
       font-size: 14px;
       font-weight: 700;
       color: var(--primary-dark);
-      margin: 0 0 8px 0;
+      margin: 0;
     }
     .total-report-building {
       background: #f9fafb;
@@ -245,7 +298,7 @@
           <div id="allBuildingsMetricWrap">
             <label for="allBuildingsMetric">โหมดภาพรวมทุกตึก</label>
             <select id="allBuildingsMetric">
-              <option value="problem_rooms">ความถี่ที่พบของห้องที่มีปัญหาในแต่ละตึก</option>
+              <option value="problem_rooms">ความถี่ที่พบปัญหาของห้องในแต่ละตึก (นับตามวัน/ห้อง)</option>
               <option value="raw_frequency">ความถี่ / รายการปัญหาในแต่ละตึก (แยก 5 กราฟตามปัญหา)</option>
             </select>
           </div>
@@ -288,6 +341,18 @@
       <div class="card" id="mainViewCard">
         <div class="card-header-row">
           <h2 id="viewCardTitle" class="card-title">การแสดงผลข้อมูล</h2>
+          <div id="mainChartToolbar" class="chart-toolbar">
+            <button type="button" class="btn-action-sm btn-copy-img" id="copyMainChartBtn">คัดลอกภาพ</button>
+            <button type="button" class="btn-action-sm btn-save-img" id="prepareSaveMainChartBtn">เซฟภาพ</button>
+          </div>
+        </div>
+
+        <div id="confirmDownloadBar" class="confirm-download-bar">
+          <span id="confirmDownloadText">ยืนยันดาวน์โหลดไฟล์รูปภาพกราฟหรือไม่?</span>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button type="button" class="btn-action-sm btn-confirm-dl" id="confirmDownloadBtn">ยืนยันดาวน์โหลด</button>
+            <button type="button" class="btn-action-sm" id="cancelDownloadBtn">ยกเลิก</button>
+          </div>
         </div>
 
         <div id="tableView"></div>
@@ -332,6 +397,8 @@
 
     let rawRows = [];
     let chartInstances = [];
+    let pendingDownloadCanvas = null;
+    let pendingDownloadFilename = "chart-stats.png";
 
     const processingBannerEl = document.getElementById("processingBanner");
     const displayModeEl = document.getElementById("displayMode");
@@ -343,6 +410,84 @@
     const singleBuildingFocusWrap = document.getElementById("singleBuildingFocusWrap");
     const issueFocusFilterEl = document.getElementById("issueFocusFilter");
     const contextHintEl = document.getElementById("contextHint");
+    const mainChartToolbarEl = document.getElementById("mainChartToolbar");
+    const confirmDownloadBarEl = document.getElementById("confirmDownloadBar");
+    const confirmDownloadTextEl = document.getElementById("confirmDownloadText");
+
+    function hideDownloadConfirmation() {
+      pendingDownloadCanvas = null;
+      confirmDownloadBarEl.style.display = "none";
+    }
+
+    function requestDownloadConfirmation(canvas, filename, labelText = "กราฟที่เลือก") {
+      if (!canvas) {
+        alert("ไม่พบกราฟสำหรับบันทึกครับ");
+        return;
+      }
+      pendingDownloadCanvas = canvas;
+      pendingDownloadFilename = filename;
+      confirmDownloadTextEl.textContent = `ยืนยันดาวน์โหลดภาพ "${labelText}" (${filename})?`;
+      confirmDownloadBarEl.style.display = "flex";
+    }
+
+    function executeConfirmedDownload() {
+      if (!pendingDownloadCanvas) return;
+      const exportCanvas = buildExportableChartCanvas(pendingDownloadCanvas);
+      const link = document.createElement("a");
+      link.download = pendingDownloadFilename;
+      link.href = exportCanvas.toDataURL("image/png", 1.0);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      hideDownloadConfirmation();
+    }
+
+    function buildExportableChartCanvas(sourceCanvas) {
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = sourceCanvas.width;
+      exportCanvas.height = sourceCanvas.height;
+      const ctx = exportCanvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+      ctx.drawImage(sourceCanvas, 0, 0);
+      return exportCanvas;
+    }
+
+    async function copyCanvasToClipboard(canvas, labelText = "กราฟ") {
+      if (!canvas) {
+        alert("ไม่พบกราฟสำหรับคัดลอกครับ");
+        return;
+      }
+      const exportCanvas = buildExportableChartCanvas(canvas);
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          const blob = await new Promise(resolve => exportCanvas.toBlob(resolve, "image/png"));
+          if (blob) {
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+            alert(`คัดลอกภาพ "${labelText}" ลงคลิปบอร์ดแล้วครับ`);
+            return;
+          }
+        }
+        alert("เบราว์เซอร์นี้ไม่รองรับการคัดลอกรูปภาพตรง สามารถกด 'เซฟภาพ' แล้วกดยืนยันดาวน์โหลดแทนได้ครับ");
+      } catch (err) {
+        alert("ไม่สามารถคัดลอกรูปภาพได้ในเบราว์เซอร์นี้ แนะนำให้กด 'เซฟภาพ' แล้วกดยืนยันดาวน์โหลดแทนครับ");
+      }
+    }
+
+    document.getElementById("prepareSaveMainChartBtn").addEventListener("click", () => {
+      const activeCanvas = document.querySelector("#singleChartWrap canvas, #fiveChartsWrap canvas");
+      const title = document.getElementById("viewCardTitle").textContent || "chart";
+      requestDownloadConfirmation(activeCanvas, "chart-stats.png", title);
+    });
+
+    document.getElementById("copyMainChartBtn").addEventListener("click", () => {
+      const activeCanvas = document.querySelector("#singleChartWrap canvas, #fiveChartsWrap canvas");
+      const title = document.getElementById("viewCardTitle").textContent || "กราฟ";
+      copyCanvasToClipboard(activeCanvas, title);
+    });
+
+    document.getElementById("confirmDownloadBtn").addEventListener("click", executeConfirmedDownload);
+    document.getElementById("cancelDownloadBtn").addEventListener("click", hideDownloadConfirmation);
 
     function setProcessing(isBusy, message = "กำลังดำเนินการ... กรุณารอสักครู่") {
       processingBannerEl.textContent = message;
@@ -354,6 +499,7 @@
         try { inst.destroy(); } catch (e) {}
       });
       chartInstances = [];
+      hideDownloadConfirmation();
     }
 
     function syncFilterControlsVisibility() {
@@ -363,6 +509,10 @@
       allBuildingsMetricWrap.style.display = isAllBuildings ? "block" : "none";
       singleBuildingFocusWrap.style.display = isAllBuildings ? "none" : "block";
       chartUnitWrapEl.style.display = isChart ? "block" : "none";
+      mainChartToolbarEl.style.display = isChart ? "flex" : "none";
+      if (!isChart) {
+        hideDownloadConfirmation();
+      }
     }
 
     function normalizeDateKey(val) {
@@ -616,7 +766,7 @@
       };
     }
 
-    function renderFiveIssueCharts(labelsList, countsByKey, chartType, chartUnit) {
+    function renderFiveIssueCharts(labelsList, countsByKey, chartType, chartUnit, prefixFilename = "issue") {
       const fiveWrap = document.getElementById("fiveChartsWrap");
       fiveWrap.innerHTML = "";
 
@@ -624,15 +774,42 @@
         const card = document.createElement("div");
         card.className = "sub-chart-card";
 
+        const header = document.createElement("div");
+        header.className = "sub-chart-header";
+
         const titleEl = document.createElement("h3");
         titleEl.className = "sub-chart-title";
         const catTotal = labelsList.reduce((acc, lbl) => acc + ((countsByKey[lbl] && countsByKey[lbl][cat.key]) || 0), 0);
         titleEl.textContent = `ปัญหา: ${cat.label} (รวม ${catTotal})`;
 
+        const actionsWrap = document.createElement("div");
+        actionsWrap.style.display = "flex";
+        actionsWrap.style.gap = "4px";
+
         const canvasEl = document.createElement("canvas");
         canvasEl.style.maxHeight = "250px";
 
-        card.appendChild(titleEl);
+        const copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.className = "btn-action-sm btn-copy-img";
+        copyBtn.textContent = "คัดลอก";
+        copyBtn.addEventListener("click", () => {
+          copyCanvasToClipboard(canvasEl, `ปัญหา ${cat.label}`);
+        });
+
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.className = "btn-action-sm btn-save-img";
+        saveBtn.textContent = "เซฟภาพ";
+        saveBtn.addEventListener("click", () => {
+          requestDownloadConfirmation(canvasEl, `${prefixFilename}-${cat.key.toLowerCase()}.png`, `ปัญหา ${cat.label}`);
+        });
+
+        actionsWrap.appendChild(copyBtn);
+        actionsWrap.appendChild(saveBtn);
+        header.appendChild(titleEl);
+        header.appendChild(actionsWrap);
+        card.appendChild(header);
         card.appendChild(canvasEl);
         fiveWrap.appendChild(card);
 
@@ -668,14 +845,18 @@
             const metricMode = allBuildingsMetricEl.value;
             const problemRows = dateRows.filter(isProblemRow);
 
-            const roomFreqByBuilding = {};
+            // นับตาม วัน + ห้อง ในแต่ละตึก: วันเดียวกันรายงานซ้ำหรือหลายปัญหานับเป็น 1, วันใหม่บวกเพิ่ม
+            const roomDayKeysByBuilding = {};
             const buildingIssueCounts = {};
 
             problemRows.forEach(r => {
+              const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
               const b = String(r[2] || "ไม่ระบุอาคาร").trim();
+              const roomKey = normalizeRoomKey(r[4]);
               const tokens = parseIssueTokens(r[6]);
 
-              roomFreqByBuilding[b] = (roomFreqByBuilding[b] || 0) + 1;
+              if (!roomDayKeysByBuilding[b]) roomDayKeysByBuilding[b] = new Set();
+              roomDayKeysByBuilding[b].add(`${d}__${roomKey}`);
 
               if (!buildingIssueCounts[b]) {
                 buildingIssueCounts[b] = { LIGHT: 0, AC: 0, FAN: 0, TV: 0, OTHER: 0 };
@@ -688,20 +869,20 @@
             });
 
             const allBuildingsList = Array.from(new Set([
-              ...Object.keys(roomFreqByBuilding),
+              ...Object.keys(roomDayKeysByBuilding),
               ...Object.keys(buildingIssueCounts)
             ])).sort((a, b) => String(a).localeCompare(String(b), "th"));
 
             if (metricMode === "problem_rooms") {
-              const values = allBuildingsList.map(b => roomFreqByBuilding[b] || 0);
+              const values = allBuildingsList.map(b => (roomDayKeysByBuilding[b] ? roomDayKeysByBuilding[b].size : 0));
               const totalFreq = values.reduce((a, b) => a + b, 0);
 
-              contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับความถี่ที่พบของห้องที่มีปัญหาในแต่ละตึก";
-              viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่ที่พบของห้องที่มีปัญหาในแต่ละตึก";
+              contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับความถี่ที่พบปัญหาของห้องในแต่ละตึก (ห้องเดิมวันเดียวกันนับเป็น 1, เจอวันใหม่นับเพิ่ม)";
+              viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่ที่พบปัญหาของห้องในแต่ละตึก";
 
               document.getElementById("overviewSummaryBox").innerHTML = `
                 <div class="stat-box">
-                  <div class="stat-label">ความถี่ที่พบของห้องที่มีปัญหา (ครั้ง)</div>
+                  <div class="stat-label">ความถี่ที่พบปัญหา (นับตามวัน/ห้อง)</div>
                   <div class="stat-val">${totalFreq}</div>
                 </div>
                 <div class="stat-box">
@@ -726,7 +907,7 @@
                       <tr>
                         <th>ลำดับ</th>
                         <th>อาคาร</th>
-                        <th>ความถี่ที่พบ (ครั้ง)</th>
+                        <th>ความถี่ที่พบปัญหา (ครั้ง)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -747,7 +928,7 @@
 
                 const inst = new Chart(
                   singleCanvas.getContext("2d"),
-                  createChartConfig(mode, allBuildingsList, values, "ความถี่ที่พบ (ครั้ง)", chartUnit)
+                  createChartConfig(mode, allBuildingsList, values, "ความถี่ที่พบปัญหา (ครั้ง)", chartUnit)
                 );
                 chartInstances.push(inst);
               }
@@ -821,7 +1002,7 @@
               tableDiv.style.display = "none";
               singleChartWrap.style.display = "none";
               fiveChartsWrap.style.display = "grid";
-              renderFiveIssueCharts(allBuildingsList, buildingIssueCounts, mode, chartUnit);
+              renderFiveIssueCharts(allBuildingsList, buildingIssueCounts, mode, chartUnit, "all-buildings");
             }
             return;
           }
@@ -836,18 +1017,15 @@
 
           if (focusKey === "ALL_5_CHARTS") {
             const roomIssueCounts = {};
-            const roomLabelMap = {};
 
             buildingRows.forEach(r => {
               const rawRoom = String(r[4] || "-").trim();
-              const roomKey = normalizeRoomKey(rawRoom);
               const label = `ห้อง ${rawRoom}`;
               const tokens = parseIssueTokens(r[6]);
 
               if (!roomIssueCounts[label]) {
                 roomIssueCounts[label] = { LIGHT: 0, AC: 0, FAN: 0, TV: 0, OTHER: 0 };
               }
-              roomLabelMap[label] = roomKey;
 
               tokens.forEach(t => {
                 if (roomIssueCounts[label][t.category] !== undefined) {
@@ -929,7 +1107,7 @@
               tableDiv.style.display = "none";
               singleChartWrap.style.display = "none";
               fiveChartsWrap.style.display = "grid";
-              renderFiveIssueCharts(roomLabels, roomIssueCounts, mode, chartUnit);
+              renderFiveIssueCharts(roomLabels, roomIssueCounts, mode, chartUnit, "building-rooms");
             }
             return;
           }
