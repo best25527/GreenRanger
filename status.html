@@ -234,6 +234,7 @@
             <label for="buildingFilter">เลือกมุมมอง / อาคาร</label>
             <select id="buildingFilter">
               <option value="ALL">ภาพรวมทุกตึก</option>
+              <option value="OTHER_BUILDING">พิจารณาตึกอื่นๆ</option>
               <option value="อาคาร 3">พิจารณารายตึก: อาคาร 3</option>
               <option value="อาคาร 5">พิจารณารายตึก: อาคาร 5</option>
               <option value="อาคาร 9">พิจารณารายตึก: อาคาร 9</option>
@@ -302,6 +303,7 @@
   <script>
     const LIFF_ID = "2012781938-SGvi6d7Y";
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_cZnCMzebyoaPd7BwyyrliX52wOBU2pyEJ7R0VTgzbne6jAh24dRYREu0V9KSMU_4/exec";
+    const OTHER_BUILDING_COL_INDEX = 12;
 
     if (window.ChartDataLabels) {
       Chart.register(ChartDataLabels);
@@ -343,6 +345,26 @@
     const singleBuildingFocusWrap = document.getElementById("singleBuildingFocusWrap");
     const issueFocusFilterEl = document.getElementById("issueFocusFilter");
     const contextHintEl = document.getElementById("contextHint");
+
+    function isOtherBuildingCategory(val) {
+      return String(val || "").replace(/\s+/g, "") === "อื่นๆ";
+    }
+
+    function normalizeBuildingName(val) {
+      const trimmed = String(val || "ไม่ระบุอาคาร").trim() || "ไม่ระบุอาคาร";
+      return isOtherBuildingCategory(trimmed) ? "อื่นๆ" : trimmed;
+    }
+
+    function getOtherBuildingText(r) {
+      const directCol = r && r[OTHER_BUILDING_COL_INDEX] !== undefined
+        ? String(r[OTHER_BUILDING_COL_INDEX] || "").trim()
+        : "";
+      if (directCol) return directCol;
+
+      const rawBldg = String((r && r[2]) || "").trim();
+      const parenMatch = rawBldg.match(/^อื่น\s*ๆ\s*\((.+)\)$/);
+      return parenMatch ? parenMatch[1].trim() : "";
+    }
 
     function setProcessing(isBusy, message = "กำลังดำเนินการ... กรุณารอสักครู่") {
       processingBannerEl.textContent = message;
@@ -474,7 +496,8 @@
 
           filtered.forEach(r => {
             const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
-            const b = String(r[2] || "ไม่ระบุอาคาร").trim();
+            const b = normalizeBuildingName(r[2]);
+            const otherBldgText = getOtherBuildingText(r);
             const rawRoom = String(r[4] || "-").trim();
             const roomKey = normalizeRoomKey(rawRoom);
             const gradeVal = String(r[5] || "").trim();
@@ -494,11 +517,15 @@
               buildingMap[b].rooms[roomKey] = {
                 room: rawRoom,
                 grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
+                otherBuildingsSet: new Set(),
                 daysSet: new Set(),
                 issuesSet: new Set()
               };
             }
 
+            if (otherBldgText) {
+              buildingMap[b].rooms[roomKey].otherBuildingsSet.add(otherBldgText);
+            }
             buildingMap[b].rooms[roomKey].daysSet.add(d);
             tokens.forEach(t => {
               const label = t.category === "OTHER" && t.otherDetail ? `อื่นๆ (${t.otherDetail})` : t.rawLabel;
@@ -512,11 +539,13 @@
           let html = `<div class="hint-bar" style="margin-top:12px;">รายงานผลรวม (${rangeText}) — แสดงเฉพาะห้องที่มีปัญหา</div>`;
 
           buildings.forEach(bObj => {
+            const isOtherGroup = bObj.building === "อื่นๆ";
             const detectionCount = bObj.detectionDaysSet.size;
             const rankedRooms = Object.values(bObj.rooms)
               .map(rm => ({
                 room: rm.room,
                 grade: rm.grade,
+                otherBuilding: Array.from(rm.otherBuildingsSet).join(", ") || "-",
                 count: rm.daysSet.size,
                 issues: Array.from(rm.issuesSet).join(", ")
               }))
@@ -548,6 +577,7 @@
                   <thead>
                     <tr>
                       <th style="width: 64px;">อันดับ</th>
+                      ${isOtherGroup ? "<th>ตึกที่ระบุ</th>" : ""}
                       <th>ห้อง</th>
                       <th>ชั้น/ประเภท</th>
                       <th style="width: 140px;">จำนวนครั้งที่ถูกรายงาน</th>
@@ -558,6 +588,7 @@
                     ${rankedRooms.map((rm, idx) => `
                       <tr>
                         <td>${idx + 1}</td>
+                        ${isOtherGroup ? `<td><strong>${rm.otherBuilding}</strong></td>` : ""}
                         <td><strong>${rm.room}</strong></td>
                         <td>${rm.grade}</td>
                         <td><strong>${rm.count}</strong> ครั้ง</td>
@@ -665,6 +696,7 @@
           const mode = displayModeEl.value;
           const chartUnit = chartUnitModeEl.value;
           const selectedBuilding = buildingFilterEl.value;
+          const isOtherBuildingMode = selectedBuilding === "OTHER_BUILDING";
           const dateRows = getDateFilteredRows();
 
           const tableDiv = document.getElementById("tableView");
@@ -682,7 +714,7 @@
 
             problemRows.forEach(r => {
               const d = normalizeDateKey(r[1]) || "ไม่ระบุวันที่";
-              const b = String(r[2] || "ไม่ระบุอาคาร").trim();
+              const b = normalizeBuildingName(r[2]);
               const roomKey = normalizeRoomKey(r[4]);
               const tokens = parseIssueTokens(r[6]);
 
@@ -708,7 +740,7 @@
               const values = allBuildingsList.map(b => (roomDayKeysByBuilding[b] ? roomDayKeysByBuilding[b].size : 0));
               const totalFreq = values.reduce((a, b) => a + b, 0);
 
-              contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — นับความถี่ที่พบปัญหาของห้องในแต่ละตึก (ห้องเดิมวันเดียวกันนับเป็น 1, เจอวันใหม่นับเพิ่ม)";
+              contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — ตึกอื่นๆ รวมเป็นหมวด 'อื่นๆ' ก้อนเดียว และนับความถี่ที่พบปัญหาของห้องในแต่ละตึก";
               viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่ที่พบปัญหาของห้องในแต่ละตึก";
 
               document.getElementById("overviewSummaryBox").innerHTML = `
@@ -771,7 +803,7 @@
               return sum + c.LIGHT + c.AC + c.FAN + c.TV + c.OTHER;
             }, 0);
 
-            contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แยกความถี่รายการปัญหาเป็น 5 หมวด (ไฟ, แอร์, พัดลม, ทีวี, อื่นๆ)";
+            contextHintEl.textContent = "โหมด: ภาพรวมทุกตึก — แยกความถี่รายการปัญหาเป็น 5 หมวด (ตึกอื่นๆ รวมเป็นก้อน 'อื่นๆ')";
             viewCardTitle.textContent = "ภาพรวมทุกตึก: ความถี่รายการปัญหาแยก 5 ประเภท";
 
             document.getElementById("overviewSummaryBox").innerHTML = `
@@ -840,23 +872,29 @@
 
           const focusKey = issueFocusFilterEl.value;
           const focusThai = FOCUS_LABELS[focusKey] || "อื่นๆ";
+          const targetLabel = isOtherBuildingMode ? 'ตึก "อื่นๆ"' : selectedBuilding;
 
           const buildingRows = dateRows.filter(r => {
-            const b = String(r[2] || "").trim();
-            return b === selectedBuilding && isProblemRow(r);
+            const b = normalizeBuildingName(r[2]);
+            const matchesBuilding = isOtherBuildingMode ? b === "อื่นๆ" : b === selectedBuilding;
+            return matchesBuilding && isProblemRow(r);
           });
 
           if (focusKey === "ALL_5_CHARTS") {
             const roomIssueCounts = {};
+            const roomOtherBuildings = {};
 
             buildingRows.forEach(r => {
               const rawRoom = String(r[4] || "-").trim();
               const label = `ห้อง ${rawRoom}`;
               const tokens = parseIssueTokens(r[6]);
+              const otherBldgText = getOtherBuildingText(r);
 
               if (!roomIssueCounts[label]) {
                 roomIssueCounts[label] = { LIGHT: 0, AC: 0, FAN: 0, TV: 0, OTHER: 0 };
+                roomOtherBuildings[label] = new Set();
               }
+              if (otherBldgText) roomOtherBuildings[label].add(otherBldgText);
 
               tokens.forEach(t => {
                 if (roomIssueCounts[label][t.category] !== undefined) {
@@ -876,8 +914,10 @@
               return sum + c.LIGHT + c.AC + c.FAN + c.TV + c.OTHER;
             }, 0);
 
-            contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} — แยกความถี่รายการปัญหาของแต่ละห้องเป็น 5 กราฟ (ไฟ, แอร์, พัดลม, ทีวี, อื่นๆ)`;
-            viewCardTitle.textContent = `${selectedBuilding}: ความถี่รายการปัญหาแยกห้อง (5 กราฟ)`;
+            contextHintEl.textContent = isOtherBuildingMode
+              ? 'โหมด: พิจารณาตึกอื่นๆ — กราฟแสดงเฉพาะห้องในกลุ่มตึกอื่นๆ ส่วนตารางระบุชื่อตึกที่กรอกไว้ด้วย'
+              : `โหมด: พิจารณา ${selectedBuilding} — แยกความถี่รายการปัญหาของแต่ละห้องเป็น 5 กราฟ (ไฟ, แอร์, พัดลม, ทีวี, อื่นๆ)`;
+            viewCardTitle.textContent = `${targetLabel}: ความถี่รายการปัญหาแยกห้อง (5 กราฟ)`;
 
             document.getElementById("overviewSummaryBox").innerHTML = `
               <div class="stat-box">
@@ -905,6 +945,7 @@
                   <thead>
                     <tr>
                       <th>ลำดับ</th>
+                      ${isOtherBuildingMode ? "<th>ตึกที่ระบุ</th>" : ""}
                       <th>ห้อง</th>
                       <th>ไฟ</th>
                       <th>แอร์</th>
@@ -918,9 +959,11 @@
                     ${roomLabels.map((lbl, idx) => {
                       const c = roomIssueCounts[lbl];
                       const rowSum = c.LIGHT + c.AC + c.FAN + c.TV + c.OTHER;
+                      const bldgText = Array.from(roomOtherBuildings[lbl] || []).join(", ") || "-";
                       return `
                         <tr>
                           <td>${idx + 1}</td>
+                          ${isOtherBuildingMode ? `<td><strong>${bldgText}</strong></td>` : ""}
                           <td><strong>${lbl}</strong></td>
                           <td>${c.LIGHT}</td>
                           <td>${c.AC}</td>
@@ -950,6 +993,7 @@
             const rawRoom = String(r[4] || "-").trim();
             const roomKey = normalizeRoomKey(rawRoom);
             const gradeVal = String(r[5] || "").trim();
+            const otherBldgText = getOtherBuildingText(r);
             const tokens = parseIssueTokens(r[6]);
 
             const matchingTokens = focusKey === "ALL_OVERVIEW"
@@ -962,6 +1006,7 @@
               roomStats[roomKey] = {
                 room: rawRoom,
                 grade: gradeVal && gradeVal !== "-" ? gradeVal : "-",
+                otherBuildingsSet: new Set(),
                 countedDays: new Set(),
                 specificIssueFreq: 0,
                 issuesSet: new Set(),
@@ -969,6 +1014,9 @@
               };
             }
 
+            if (otherBldgText) {
+              roomStats[roomKey].otherBuildingsSet.add(otherBldgText);
+            }
             roomStats[roomKey].countedDays.add(d);
             roomStats[roomKey].specificIssueFreq += matchingTokens.length;
 
@@ -993,6 +1041,7 @@
 
           const rowsForTable = sortedRooms.map((item, idx) => ({
             rank: idx + 1,
+            otherBuilding: Array.from(item.otherBuildingsSet).join(", ") || "-",
             room: item.room,
             grade: item.grade,
             frequency: item.finalFrequency,
@@ -1000,7 +1049,10 @@
             otherSpecify: Array.from(item.otherDetailsSet).join(", ") || "-"
           }));
 
-          if (focusKey === "ALL_OVERVIEW") {
+          if (isOtherBuildingMode) {
+            contextHintEl.textContent = 'โหมด: พิจารณาตึกอื่นๆ — กราฟและแผนภูมิแสดงเฉพาะห้องในกลุ่มตึกอื่นๆ ส่วนตารางระบุตึกที่กรอกไว้ด้วย';
+            viewCardTitle.textContent = `ตึก "อื่นๆ": ความถี่ของห้องที่มีปัญหา (${focusThai})`;
+          } else if (focusKey === "ALL_OVERVIEW") {
             contextHintEl.textContent = `โหมด: พิจารณา ${selectedBuilding} (ภาพรวมตึก) — วันนั้นมีหลายปัญหาก็นับเป็น 1 ครั้ง และเรียงอันดับห้องที่พบปัญหา`;
             viewCardTitle.textContent = `${selectedBuilding}: ความถี่ของห้องที่มีปัญหา (ภาพรวมตึก)`;
           } else if (focusKey === "OTHER") {
@@ -1012,7 +1064,7 @@
           }
 
           const totalLabelDisplay = focusKey === "ALL_OVERVIEW"
-            ? "จำนวนห้องที่มีปัญหาในตึก"
+            ? `จำนวนห้องที่มีปัญหาใน${targetLabel}`
             : `จำนวนห้องที่พบปัญหา "${focusThai}"`;
 
           document.getElementById("overviewSummaryBox").innerHTML = `
@@ -1042,6 +1094,7 @@
                 <thead>
                   <tr>
                     <th>ลำดับ</th>
+                    ${isOtherBuildingMode ? "<th>ตึกที่ระบุ</th>" : ""}
                     <th>ห้อง</th>
                     <th>ชั้น/ประเภท</th>
                     <th>ความถี่ที่พบ (ครั้ง)</th>
@@ -1053,6 +1106,7 @@
                   ${rowsForTable.map(row => `
                     <tr>
                       <td>${row.rank}</td>
+                      ${isOtherBuildingMode ? `<td><strong>${row.otherBuilding}</strong></td>` : ""}
                       <td><strong>${row.room}</strong></td>
                       <td>${row.grade}</td>
                       <td><strong>${row.frequency}</strong></td>
@@ -1154,3 +1208,4 @@
   </script>
 </body>
 </html>
+```[cite: 1]
