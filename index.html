@@ -42,6 +42,19 @@
       margin: 0 0 12px;
       color: var(--primary-dark);
     }
+    .auth-loading {
+      text-align: center;
+      padding: 28px 16px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .auth-denied {
+      text-align: center;
+      padding: 32px 16px;
+      color: #991b1b;
+      font-weight: 700;
+      line-height: 1.6;
+    }
     label {
       display: block;
       font-size: 14px;
@@ -230,132 +243,143 @@
 </head>
 <body>
   <div class="container">
-    <div class="card">
-      <h2 class="card-title">1. ข้อมูลรอบการตรวจ</h2>
-
-      <label for="inspectDate">วันที่ตรวจ</label>
-      <input type="date" id="inspectDate" required />
-
-      <label for="buildingSelect">เลือกอาคาร</label>
-      <select id="buildingSelect" required>
-        <option value="" disabled selected>-- เลือกอาคาร --</option>
-        <option value="อาคาร 3">อาคาร 3</option>
-        <option value="อาคาร 5">อาคาร 5</option>
-        <option value="อาคาร 9">อาคาร 9</option>
-        <option value="อาคาร 10 (3-5)">อาคาร 10 (3-5)</option>
-        <option value="อาคาร 10 (6-8)">อาคาร 10 (6-8)</option>
-      </select>
-
-      <label for="groupSelect">เลือกกลุ่ม</label>
-      <select id="groupSelect" required>
-        <option value="" disabled selected>-- เลือกกลุ่ม --</option>
-        <option value="กลุ่ม A">กลุ่ม A</option>
-        <option value="กลุ่ม B">กลุ่ม B</option>
-        <option value="กลุ่ม C">กลุ่ม C</option>
-        <option value="กลุ่ม D">กลุ่ม D</option>
-      </select>
+    <div id="authLoadingCard" class="card auth-loading">
+      กำลังตรวจสอบสิทธิ์ผู้ใช้งาน...
     </div>
 
-    <div class="card">
-      <h2 class="card-title">2. รายละเอียดห้องที่พบปัญหา</h2>
+    <div id="authDeniedCard" class="card auth-denied" style="display: none;">
+      บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งานระบบรายงานการตรวจอาคารครับ<br />
+      <span class="muted">กรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่ม UID ใน Authorized_Users</span>
+    </div>
 
-      <label for="roomInput">เลขห้อง / ชื่อห้อง</label>
-      <input type="text" id="roomInput" placeholder="เช่น 301, 422 หรือ ห้องน้ำ" autocomplete="off" />
+    <div id="mainFormWrapper" style="display: none;">
+      <div class="card">
+        <h2 class="card-title">1. ข้อมูลรอบการตรวจ</h2>
 
-      <div id="gradeBox" class="grade-badge">
-        <div class="grade-row">
-          <span id="gradeText"></span>
-          <label class="check-item" style="padding: 4px 8px; background: #fff;">
-            <input type="checkbox" id="notClassroomCheck" />
-            <span>ไม่ใช่ห้องเรียน (กดเมื่อกรณีไม่ใช้ห้องประจำ)</span>
-          </label>
+        <label for="inspectDate">วันที่ตรวจ</label>
+        <input type="date" id="inspectDate" required />
+
+        <label for="buildingSelect">เลือกอาคาร</label>
+        <select id="buildingSelect" required>
+          <option value="" disabled selected>-- เลือกอาคาร --</option>
+          <option value="อาคาร 3">อาคาร 3</option>
+          <option value="อาคาร 5">อาคาร 5</option>
+          <option value="อาคาร 9">อาคาร 9</option>
+          <option value="อาคาร 10 (3-5)">อาคาร 10 (3-5)</option>
+          <option value="อาคาร 10 (6-8)">อาคาร 10 (6-8)</option>
+        </select>
+
+        <label for="groupSelect">เลือกกลุ่ม</label>
+        <select id="groupSelect" required>
+          <option value="" disabled selected>-- เลือกกลุ่ม --</option>
+          <option value="กลุ่ม A">กลุ่ม A</option>
+          <option value="กลุ่ม B">กลุ่ม B</option>
+          <option value="กลุ่ม C">กลุ่ม C</option>
+          <option value="กลุ่ม D">กลุ่ม D</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">2. รายละเอียดห้องที่พบปัญหา</h2>
+
+        <label for="roomInput">เลขห้อง / ชื่อห้อง</label>
+        <input type="text" id="roomInput" placeholder="เช่น 301, 422 หรือ ห้องน้ำ" autocomplete="off" />
+
+        <div id="gradeBox" class="grade-badge">
+          <div class="grade-row">
+            <span id="gradeText"></span>
+            <label class="check-item" style="padding: 4px 8px; background: #fff;">
+              <input type="checkbox" id="notClassroomCheck" />
+              <span>ไม่ใช่ห้องเรียน (กดเมื่อกรณีไม่ใช้ห้องประจำ)</span>
+            </label>
+          </div>
+
+          <div id="manualGradeWrap" class="manual-grade-wrap">
+            <label for="manualGradeSelect" style="margin-top: 6px; color: #065f46;">เลือกระดับชั้นของห้องนี้</label>
+            <select id="manualGradeSelect">
+              <option value="">-- เลือกระดับชั้น --</option>
+              <option value="ม.1">ม.1</option>
+              <option value="ม.2">ม.2</option>
+              <option value="ม.3">ม.3</option>
+              <option value="ม.4">ม.4</option>
+              <option value="ม.5">ม.5</option>
+              <option value="ม.6">ม.6</option>
+              <option value="ห้องพิเศษ / อื่นๆ">ห้องพิเศษ / อื่นๆ</option>
+            </select>
+          </div>
         </div>
 
-        <div id="manualGradeWrap" class="manual-grade-wrap">
-          <label for="manualGradeSelect" style="margin-top: 6px; color: #065f46;">เลือกระดับชั้นของห้องนี้</label>
-          <select id="manualGradeSelect">
-            <option value="">-- เลือกระดับชั้น --</option>
-            <option value="ม.1">ม.1</option>
-            <option value="ม.2">ม.2</option>
-            <option value="ม.3">ม.3</option>
-            <option value="ม.4">ม.4</option>
-            <option value="ม.5">ม.5</option>
-            <option value="ม.6">ม.6</option>
-            <option value="ห้องพิเศษ / อื่นๆ">ห้องพิเศษ / อื่นๆ</option>
-          </select>
-        </div>
-      </div>
-
-      <label>ปัญหาที่พบ (เลือกได้หลายข้อ)</label>
-      <div class="check-group" id="issueGroup">
-        <label class="check-item">
-          <input type="checkbox" class="issue-cb" value="ไม่ปิดไฟ" />
-          <span>ไม่ปิดไฟ</span>
-        </label>
-        <label class="check-item">
-          <input type="checkbox" class="issue-cb" value="ไม่ปิดพัดลม" />
-          <span>ไม่ปิดพัดลม</span>
-        </label>
-        <label class="check-item">
-          <input type="checkbox" class="issue-cb" value="ไม่ปิดเครื่องปรับอากาศ" />
-          <span>ไม่ปิดเครื่องปรับอากาศ</span>
-        </label>
-        <label class="check-item">
-          <input type="checkbox" class="issue-cb" value="ไม่ปิดทีวี/โปรเจคเตอร์" />
-          <span>ไม่ปิดทีวี/โปรเจคเตอร์</span>
-        </label>
-        <label class="check-item">
-          <input type="checkbox" id="otherIssueCb" value="อื่นๆ" />
-          <span>อื่นๆ</span>
-        </label>
-      </div>
-
-      <div id="otherIssueWrap" style="display: none;">
-        <label for="otherIssueText">ระบุปัญหาอื่น ๆ เพิ่มเติม</label>
-        <input type="text" id="otherIssueText" placeholder="พิมพ์รายละเอียดปัญหาเพิ่มเติม" />
-      </div>
-
-      <div class="photo-box">
-        <label for="photoInput">แนบรูปถ่ายหลักฐาน (เลือกได้หลายรูป)</label>
-        <input type="file" id="photoInput" accept="image/*" capture="environment" multiple />
-
-        <div id="forgotPhotoWrap" style="margin-top: 8px;">
+        <label>ปัญหาที่พบ (เลือกได้หลายข้อ)</label>
+        <div class="check-group" id="issueGroup">
           <label class="check-item">
-            <input type="checkbox" id="forgotPhotoCb" />
-            <span>ลืมถ่ายรูป</span>
+            <input type="checkbox" class="issue-cb" value="ไม่ปิดไฟ" />
+            <span>ไม่ปิดไฟ</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="issue-cb" value="ไม่ปิดพัดลม" />
+            <span>ไม่ปิดพัดลม</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="issue-cb" value="ไม่ปิดเครื่องปรับอากาศ" />
+            <span>ไม่ปิดเครื่องปรับอากาศ</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="issue-cb" value="ไม่ปิดทีวี/โปรเจคเตอร์" />
+            <span>ไม่ปิดทีวี/โปรเจคเตอร์</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" id="otherIssueCb" value="อื่นๆ" />
+            <span>อื่นๆ</span>
           </label>
         </div>
 
-        <div id="photoPreviewList" class="photo-preview-list"></div>
-      </div>
-
-      <button type="button" class="btn btn-add" id="addRoomBtn">+ กดส่งข้อมูลห้องที่รายงาน/เพิ่มห้องถัดไป</button>
-    </div>
-
-    <div class="card">
-      <h2 class="card-title">3. รายการที่รอส่ง (<span id="queueCount">0</span> ห้อง)</h2>
-      <div id="queuedList" class="muted">ยังไม่มีรายการห้องที่เพิ่มไว้</div>
-
-      <div id="previewModal" class="preview-modal">
-        <div class="preview-modal-header">
-          <strong id="previewTitle" style="font-size: 14px;">ตัวอย่างรูปภาพ</strong>
-          <button type="button" class="btn-close-preview" onclick="closePreviewModal()">ปิด</button>
+        <div id="otherIssueWrap" style="display: none;">
+          <label for="otherIssueText">ระบุปัญหาอื่น ๆ เพิ่มเติม</label>
+          <input type="text" id="otherIssueText" placeholder="พิมพ์รายละเอียดปัญหาเพิ่มเติม" />
         </div>
-        <div id="previewImages" class="preview-images"></div>
+
+        <div class="photo-box">
+          <label for="photoInput">แนบรูปถ่ายหลักฐาน (เลือกได้หลายรูป)</label>
+          <input type="file" id="photoInput" accept="image/*" capture="environment" multiple />
+
+          <div id="forgotPhotoWrap" style="margin-top: 8px;">
+            <label class="check-item">
+              <input type="checkbox" id="forgotPhotoCb" />
+              <span>ลืมถ่ายรูป</span>
+            </label>
+          </div>
+
+          <div id="photoPreviewList" class="photo-preview-list"></div>
+        </div>
+
+        <button type="button" class="btn btn-add" id="addRoomBtn">+ กดส่งข้อมูลห้องที่รายงาน/เพิ่มห้องถัดไป</button>
       </div>
 
-      <div id="allClearWrap" style="margin-top: 12px;">
-        <label class="check-item">
-          <input type="checkbox" id="allClearCb" />
-          <span>ทุกห้องเรียบร้อยหมด</span>
-        </label>
+      <div class="card">
+        <h2 class="card-title">3. รายการที่รอส่ง (<span id="queueCount">0</span> ห้อง)</h2>
+        <div id="queuedList" class="muted">ยังไม่มีรายการห้องที่เพิ่มไว้</div>
+
+        <div id="previewModal" class="preview-modal">
+          <div class="preview-modal-header">
+            <strong id="previewTitle" style="font-size: 14px;">ตัวอย่างรูปภาพ</strong>
+            <button type="button" class="btn-close-preview" onclick="closePreviewModal()">ปิด</button>
+          </div>
+          <div id="previewImages" class="preview-images"></div>
+        </div>
+
+        <div id="allClearWrap" style="margin-top: 12px;">
+          <label class="check-item">
+            <input type="checkbox" id="allClearCb" />
+            <span>ทุกห้องเรียบร้อยหมด</span>
+          </label>
+        </div>
+
+        <label for="signerName">ลงชื่อยืนยันผู้ตรวจ</label>
+        <input type="text" id="signerName" placeholder="พิมพ์ชื่อจริง-นามสกุล ผู้ตรวจ" />
+
+        <button type="button" class="btn btn-submit" id="submitAllBtn" disabled>ยืนยันและส่งข้อมูลทั้งหมด</button>
+        <div id="statusMsg"></div>
       </div>
-
-      <label for="signerName">ลงชื่อยืนยันผู้ตรวจ</label>
-      <input type="text" id="signerName" placeholder="พิมพ์ชื่อจริง-นามสกุล ผู้ตรวจ" />
-
-      <button type="button" class="btn btn-submit" id="submitAllBtn" disabled>ยืนยันและส่งข้อมูลทั้งหมด</button>
-      <div id="statusMsg"></div>
     </div>
   </div>
 
@@ -368,6 +392,10 @@
     let roomDirectory = [];
     let currentCompressedPhotos = [];
     let queuedRooms = [];
+
+    const authLoadingCard = document.getElementById("authLoadingCard");
+    const authDeniedCard = document.getElementById("authDeniedCard");
+    const mainFormWrapper = document.getElementById("mainFormWrapper");
 
     const dateInput = document.getElementById("inspectDate");
     const buildingSelect = document.getElementById("buildingSelect");
@@ -392,6 +420,17 @@
 
     const today = new Date();
     dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+    function showAuthorizedUI(allowed) {
+      authLoadingCard.style.display = "none";
+      if (allowed) {
+        authDeniedCard.style.display = "none";
+        mainFormWrapper.style.display = "block";
+      } else {
+        mainFormWrapper.style.display = "none";
+        authDeniedCard.style.display = "block";
+      }
+    }
 
     function syncForgotPhotoVisibility() {
       const hasPhotos = currentCompressedPhotos.length > 0;
@@ -765,26 +804,42 @@
       }
     });
 
-    async function loadRoomDirectoryOnce(uidParam = "") {
-      if (!GAS_URL || GAS_URL === "YOUR_GAS_WEB_APP_URL") return;
+    async function checkAuthAndLoadRooms(uidParam = "") {
+      if (!GAS_URL || GAS_URL === "YOUR_GAS_WEB_APP_URL") return false;
+      const queryUid = uidParam || lineUid || "";
+
       try {
-        const queryUid = uidParam || lineUid || "";
-        const url = `${GAS_URL}?action=get_room_directory${queryUid ? `&uid=${encodeURIComponent(queryUid)}` : ""}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.status === "success" && Array.isArray(data.rooms) && data.rooms.length > 0) {
-          roomDirectory = data.rooms;
+        const authRes = await fetch(`${GAS_URL}?action=check_auth&uid=${encodeURIComponent(queryUid)}`);
+        const authData = await authRes.json();
+        const isAllowed = Boolean(authData && authData.authorized);
+
+        if (!isAllowed) {
+          showAuthorizedUI(false);
+          return false;
+        }
+
+        if (authData.name && !document.getElementById("signerName").value) {
+          document.getElementById("signerName").value = authData.name;
+        }
+
+        showAuthorizedUI(true);
+
+        const roomRes = await fetch(`${GAS_URL}?action=get_room_directory&uid=${encodeURIComponent(queryUid)}`);
+        const roomData = await roomRes.json();
+        if (roomData.status === "success" && Array.isArray(roomData.rooms)) {
+          roomDirectory = roomData.rooms;
           updateGradeDisplay();
         }
+        return true;
       } catch (e) {
-        // ใช้งานต่อได้ตามปกติแม้โหลดผังห้องไม่สำเร็จ
+        showAuthorizedUI(false);
+        return false;
       }
     }
 
     async function initApp() {
       syncForgotPhotoVisibility();
       updateSubmitButtonState();
-      await loadRoomDirectoryOnce();
 
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -795,17 +850,12 @@
         const profile = await liff.getProfile();
         lineUid = profile.userId || "";
         lineDisplayName = profile.displayName || "";
-        if (lineUid) {
-          await loadRoomDirectoryOnce(lineUid);
-        }
       } catch (e) {
         const params = new URLSearchParams(window.location.search);
-        const qUid = (params.get("uid") || "").trim();
-        if (qUid) {
-          lineUid = qUid;
-          await loadRoomDirectoryOnce(qUid);
-        }
+        lineUid = (params.get("uid") || "").trim();
       }
+
+      await checkAuthAndLoadRooms(lineUid);
     }
 
     initApp();
